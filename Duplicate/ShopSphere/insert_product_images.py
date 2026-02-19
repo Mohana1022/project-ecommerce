@@ -15,27 +15,17 @@ def create_connection(db_file):
         print(f"Error connecting to database: {e}")
     return conn
 
-def create_table(conn):
-    """ 
-    Create the 'vendor_productimage' table if it doesn't exist.
-    """
+def get_table_columns(conn, table_name):
+    """ Get list of column names for a table from the database. """
+    cursor = conn.cursor()
     try:
-        sql_create_images_table = """
-            CREATE TABLE IF NOT EXISTS vendor_productimage (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                image_data BLOB,
-                image_name TEXT,
-                image_mimetype TEXT,
-                uploaded_at TEXT,
-                product_id INTEGER,
-                FOREIGN KEY (product_id) REFERENCES vendor_product (id)
-            );
-        """
-        c = conn.cursor()
-        c.execute(sql_create_images_table)
-        print("Table 'vendor_productimage' checked/created successfully.")
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        # row: (cid, name, type, notnull, dflt_value, pk)
+        columns = [row[1] for row in cursor.fetchall()]
+        return columns
     except Error as e:
-        print(f"Error creating table: {e}")
+        print(f"Error getting columns: {e}")
+        return []
 
 def get_product_ids(conn):
     """
@@ -52,8 +42,17 @@ def get_product_ids(conn):
 
 def insert_product_images(conn):
     """ 
-    Insert 4 sample images for each product found in the database.
+    Insert 4 sample images for each product found in the database dynamically.
     """
+    table_name = 'vendor_productimage'
+    columns = get_table_columns(conn, table_name)
+
+    if not columns:
+        print(f"Table '{table_name}' not found. Please ensure migrations are applied.")
+        return
+
+    print(f"Found columns in '{table_name}': {', '.join(columns)}")
+
     product_ids = get_product_ids(conn)
     
     if not product_ids:
@@ -72,24 +71,45 @@ def insert_product_images(conn):
         for i in range(1, 5):
             image_name = f"product_{product_id}_img_{i}.jpg"
             image_mimetype = "image/jpeg"
+            image_path = f"products/{image_name}"
             
-            image_tuple = (
-                dummy_image_data,
-                image_name,
-                image_mimetype,
-                current_time,
-                product_id
-            )
-            images.append(image_tuple)
+            data_pool = {
+                'image': image_path,
+                'image_data': dummy_image_data,
+                'image_name': image_name,
+                'image_mimetype': image_mimetype,
+                'uploaded_at': current_time,
+                'created_at': current_time,
+                'updated_at': current_time,
+                'product_id': product_id
+            }
 
-    sql_insert_image = ''' 
-        INSERT INTO vendor_productimage(image_data, image_name, image_mimetype, uploaded_at, product_id)
-        VALUES(?, ?, ?, ?, ?) 
+            row_data = {}
+            for col in columns:
+                if col == 'id':
+                    continue
+                if col in data_pool:
+                    row_data[col] = data_pool[col]
+            
+            images.append(row_data)
+
+    if not images:
+        return
+
+    insert_keys = list(images[0].keys())
+    columns_sql = ", ".join(insert_keys)
+    placeholders = ", ".join(["?"] * len(insert_keys))
+
+    sql_insert_image = f''' 
+        INSERT INTO {table_name}({columns_sql})
+        VALUES({placeholders}) 
     '''
+    
+    values = [tuple(p[k] for k in insert_keys) for p in images]
 
     try:
         cur = conn.cursor()
-        cur.executemany(sql_insert_image, images)
+        cur.executemany(sql_insert_image, values)
         conn.commit()
         print(f"Success! {cur.rowcount} product images inserted.")
     except Error as e:
@@ -100,7 +120,6 @@ def main():
 
     conn = create_connection(database)
     if conn is not None:
-        create_table(conn)
         insert_product_images(conn)
         conn.close()
     else:

@@ -15,6 +15,18 @@ def create_connection(db_file):
         print(f"Error connecting to database: {e}")
     return conn
 
+def get_table_columns(conn, table_name):
+    """ Get list of column names for a table from the database. """
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        # row: (cid, name, type, notnull, dflt_value, pk)
+        columns = [row[1] for row in cursor.fetchall()]
+        return columns
+    except Error as e:
+        print(f"Error getting columns: {e}")
+        return []
+
 def get_product_ids(conn):
     """
     Fetch all existing product IDs from the vendor_product table.
@@ -30,8 +42,17 @@ def get_product_ids(conn):
 
 def insert_reviews(conn):
     """ 
-    Insert sample reviews for products from users (100-149).
+    Insert sample reviews dynamically based on existing table columns.
     """
+    table_name = 'user_review'
+    columns = get_table_columns(conn, table_name)
+
+    if not columns:
+        print(f"Table '{table_name}' not found. Please ensure migrations are applied.")
+        return
+
+    print(f"Found columns in '{table_name}': {', '.join(columns)}")
+
     product_ids = get_product_ids(conn)
     
     if not product_ids:
@@ -68,27 +89,44 @@ def insert_reviews(conn):
         
         pictures = None # Placeholder for image path/data
         
-        review_tuple = (
-            rating,
-            comment,
-            pictures,
-            current_time,
-            current_time,
-            product_id,
-            user_id
-        )
-        reviews.append(review_tuple)
+        data_pool = {
+            'rating': rating,
+            'comment': comment,
+            'pictures': pictures,
+            'created_at': current_time,
+            'updated_at': current_time,
+            'product_id': product_id,
+            'Product_id': product_id,
+            'user_id': user_id,
+            'reviewer_name': f"User {user_id}"
+        }
 
-    sql_insert_review = ''' 
-        INSERT OR IGNORE INTO user_review(
-            rating, comment, pictures, created_at, updated_at, product_id, user_id
-        )
-        VALUES(?, ?, ?, ?, ?, ?, ?) 
+        row_data = {}
+        for col in columns:
+            if col == 'id':
+                continue
+            if col in data_pool:
+                row_data[col] = data_pool[col]
+        
+        reviews.append(row_data)
+
+    if not reviews:
+        return
+
+    insert_keys = list(reviews[0].keys())
+    columns_sql = ", ".join(insert_keys)
+    placeholders = ", ".join(["?"] * len(insert_keys))
+
+    sql_insert_review = f''' 
+        INSERT INTO {table_name}({columns_sql})
+        VALUES({placeholders}) 
     '''
+    
+    values = [tuple(p[k] for k in insert_keys) for p in reviews]
 
     try:
         cur = conn.cursor()
-        cur.executemany(sql_insert_review, reviews)
+        cur.executemany(sql_insert_review, values)
         conn.commit()
         print(f"Success! {cur.rowcount} reviews inserted.")
     except Error as e:

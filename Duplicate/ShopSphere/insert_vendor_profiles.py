@@ -15,97 +15,102 @@ def create_connection(db_file):
         print(f"Error connecting to database: {e}")
     return conn
 
+def get_table_columns(conn, table_name):
+    """ Get list of column names for a table from the database. """
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        # row: (cid, name, type, notnull, dflt_value, pk)
+        columns = [row[1] for row in cursor.fetchall()]
+        return columns
+    except Error as e:
+        print(f"Error getting columns: {e}")
+        return []
+
 def insert_vendor_profiles(conn):
     """ 
-    Insert sample vendor profiles for users with IDs 150-159.
+    Insert sample vendor profiles dynamically based on existing table columns.
     """
-    profiles = []
+    table_name = 'vendor_vendorprofile'
+    columns = get_table_columns(conn, table_name)
     
-    # Vendor IDs from insert_sampleUsers_data.py (150-159)
-    # Customers: 100-149, Vendors: 150-159, Delivery Agents: 160-169
+    if not columns:
+        print(f"Table '{table_name}' not found. Please ensure migrations are applied.")
+        return
+
+    print(f"Found columns in '{table_name}': {', '.join(columns)}")
+
+    profiles = []
+    # Vendor IDs 150-159 (Consistent with insert_product_data.py)
     vendor_ids = range(150, 160) 
     
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-    business_types = ['retail', 'wholesale', 'manufacturer', 'distributor']
+    
+    # Dummy binary data (will be skipped if column doesn't exist)
+    dummy_blob = b'dummy_proof_data'
 
     for user_id in vendor_ids:
-        # Generate sample data
-        shop_name = f"Vendor Shop {user_id}"
-        shop_description = f"Quality products from Vendor {user_id}"
-        address = f"{random.randint(1, 999)} Market St, City {user_id}"
-        business_type = random.choice(business_types)
-        id_number = f"ID-{user_id}-{random.randint(1000, 9999)}"
-        gst_number = f"GST{user_id}Z{random.randint(10, 99)}"
-        pan_number = f"PAN{user_id}X{random.randint(10, 99)}"
+        store_name = f"Vendor Store {user_id}"
+        address = f"{random.randint(100, 999)} Market Street"
+        phone_number = f"555-01{random.randint(10, 99)}"
+        id_proof_path = f"vendor_proofs/vendor_{user_id}_proof.jpg"
+        pan_card_path = f"vendor_proofs/vendor_{user_id}_pan.jpg"
         
-        # Binary data placeholders (None)
-        id_proof_data = None
-        id_proof_name = None
-        id_proof_mimetype = None
-        pan_card_data = None
-        pan_card_name = None
-        pan_card_mimetype = None
+        data_pool = {
+            'user_id': user_id,
+            'store_name': store_name,
+            'shop_name': store_name,
+            'shop_description': f"Official store for {store_name}",
+            'address': address,
+            'phone_number': phone_number,
+            'business_type': 'individual',
+            'id_type': 'aadhar',
+            'id_number': f"{random.randint(1000, 9999)}-{random.randint(1000, 9999)}",
+            'id_proof': id_proof_path,
+            'id_proof_file': id_proof_path,
+            'id_proof_data': dummy_blob,
+            'gst_number': f"GST{random.randint(10000, 99999)}Z1",
+            'pan_number': f"ABCDE{random.randint(1000, 9999)}F",
+            'pan_name': f"Vendor {user_id}",
+            'pan_card_file': pan_card_path,
+            'approval_status': 'approved',
+            'bank_holder_name': f"Vendor {user_id}",
+            'bank_account_number': f"1234567890{user_id}",
+            'bank_ifsc_code': "SBIN0001234",
+            'shipping_fee': 50.0,
+            'is_approved': 1, # True
+            'is_blocked': 0,
+            'created_at': current_time,
+            'updated_at': current_time
+        }
         
-        approval_status = 'approved'
-        rejection_reason = None
-        created_at = current_time
-        updated_at = current_time
-        is_blocked = 0
-        blocked_reason = None
+        row_data = {}
+        for col in columns:
+            if col == 'id':
+                continue
+            if col in data_pool:
+                row_data[col] = data_pool[col]
         
-        bank_holder_name = f"Vendor User {user_id}"
-        bank_account_number = f"123456789{user_id}"
-        bank_ifsc_code = "BANK0001234"
-        shipping_fee = 50.0
-        
-        # Tuple matching the columns provided (excluding id which is auto-increment)
-        profile_tuple = (
-            shop_name,
-            shop_description,
-            address,
-            business_type,
-            id_number,
-            gst_number,
-            pan_number,
-            id_proof_data,
-            id_proof_name,
-            id_proof_mimetype,
-            pan_card_data,
-            pan_card_name,
-            pan_card_mimetype,
-            approval_status,
-            rejection_reason,
-            created_at,
-            updated_at,
-            is_blocked,
-            blocked_reason,
-            bank_holder_name,
-            bank_account_number,
-            bank_ifsc_code,
-            shipping_fee,
-            user_id
-        )
-        profiles.append(profile_tuple)
+        profiles.append(row_data)
 
-    # SQL statement
-    sql_insert_profile = ''' 
-        INSERT OR IGNORE INTO vendor_vendorprofile(
-            shop_name, shop_description, address, business_type, 
-            id_number, gst_number, pan_number, 
-            id_proof_data, id_proof_name, id_proof_mimetype, 
-            pan_card_data, pan_card_name, pan_card_mimetype, 
-            approval_status, rejection_reason, 
-            created_at, updated_at, 
-            is_blocked, blocked_reason, 
-            bank_holder_name, bank_account_number, bank_ifsc_code, 
-            shipping_fee, user_id
-        )
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+    if not profiles:
+        return
+
+    # Prepare SQL
+    insert_keys = list(profiles[0].keys())
+    columns_sql = ", ".join(insert_keys)
+    placeholders = ", ".join(["?"] * len(insert_keys))
+    
+    sql_insert = f''' 
+        INSERT INTO {table_name}({columns_sql})
+        VALUES({placeholders}) 
     '''
+    
+    values = [tuple(p[k] for k in insert_keys) for p in profiles]
 
     try:
         cur = conn.cursor()
-        cur.executemany(sql_insert_profile, profiles)
+        cur.executemany(sql_insert, values)
         conn.commit()
         print(f"Success! {cur.rowcount} vendor profiles inserted.")
     except Error as e:

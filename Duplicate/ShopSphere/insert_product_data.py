@@ -2,6 +2,7 @@ import sqlite3
 from sqlite3 import Error
 import random
 from datetime import datetime
+import re
 
 def create_connection(db_file):
     """ 
@@ -15,40 +16,37 @@ def create_connection(db_file):
         print(f"Error connecting to database: {e}")
     return conn
 
-def create_table(conn):
-    """ 
-    Create the 'vendor_product' table.
-    """
+def get_table_columns(conn, table_name):
+    """ Get list of column names for a table from the database. """
+    cursor = conn.cursor()
     try:
-        sql_create_products_table = """
-            CREATE TABLE IF NOT EXISTS vendor_product (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                price REAL,
-                quantity INTEGER,
-                status TEXT,
-                is_blocked BOOLEAN DEFAULT 0,
-                blocked_reason TEXT,
-                created_at TEXT,
-                updated_at TEXT,
-                category_id INTEGER,
-                vendor_id INTEGER
-            );
-        """
-        c = conn.cursor()
-        c.execute(sql_create_products_table)
-        print("Table 'vendor_product' checked/created successfully.")
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        # row: (cid, name, type, notnull, dflt_value, pk)
+        columns = [row[1] for row in cursor.fetchall()]
+        return columns
     except Error as e:
-        print(f"Error creating table: {e}")
+        print(f"Error getting columns: {e}")
+        return []
+
+def slugify(text):
+    """ Simple slugify function. """
+    text = text.lower()
+    return re.sub(r'[^a-z0-9]+', '-', text).strip('-')
 
 def insert_sample_products(conn):
     """ 
-    Insert sample products for vendors with IDs 150-159.
+    Insert sample products dynamically based on existing table columns.
     """
-    products = []
+    table_name = 'vendor_product'
+    columns = get_table_columns(conn, table_name)
     
-    # Based on previous script: Customers (100-149), Vendors (150-159)
+    if not columns:
+        print(f"Table '{table_name}' not found. Please ensure migrations are applied.")
+        return
+
+    print(f"Found columns in '{table_name}': {', '.join(columns)}")
+
+    products = []
     vendor_ids = range(150, 160) 
     
     product_names = [
@@ -65,27 +63,60 @@ def insert_sample_products(conn):
         for i in range(1, 6):
             base_name = random.choice(product_names)
             name = f"{base_name} {vendor_id}-{i}"
+            slug = slugify(name)
             description = f"High quality {base_name} sold by Vendor {vendor_id}."
             price = round(random.uniform(10.0, 1000.0), 2)
             quantity = random.randint(0, 100)
             status = random.choice(statuses)
             category_id = random.randint(1, 5) # Assuming categories 1-5 exist
+            category_name = random.choice(["Electronics", "Fashion", "Home", "Beauty", "Sports"])
             
-            # Tuple matching the columns (excluding ID)
-            product_tuple = (
-                name, description, price, quantity, status, 
-                0, None, current_time, current_time, category_id, vendor_id
-            )
-            products.append(product_tuple)
+            # Prepare all possible data fields
+            data_pool = {
+                'name': name,
+                'slug': slug,
+                'description': description,
+                'price': price,
+                'quantity': quantity,
+                'status': status,
+                'approval_status': 'approved',
+                'is_blocked': 0,
+                'blocked_reason': None,
+                'created_at': current_time,
+                'updated_at': current_time,
+                'category_id': category_id,
+                'category': category_name,
+                'vendor_id': vendor_id
+            }
+            
+            # Build the row based on actual columns
+            row_data = {}
+            for col in columns:
+                if col == 'id':
+                    continue
+                if col in data_pool:
+                    row_data[col] = data_pool[col]
+            
+            products.append(row_data)
 
-    sql_insert_product = ''' 
-        INSERT INTO vendor_product(name, description, price, quantity, status, is_blocked, blocked_reason, created_at, updated_at, category_id, vendor_id)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+    if not products:
+        return
+
+    # Prepare SQL
+    insert_keys = list(products[0].keys())
+    columns_sql = ", ".join(insert_keys)
+    placeholders = ", ".join(["?"] * len(insert_keys))
+    
+    sql_insert_product = f''' 
+        INSERT INTO {table_name}({columns_sql})
+        VALUES({placeholders}) 
     '''
+    
+    values = [tuple(p[k] for k in insert_keys) for p in products]
 
     try:
         cur = conn.cursor()
-        cur.executemany(sql_insert_product, products)
+        cur.executemany(sql_insert_product, values)
         conn.commit()
         print(f"Success! {cur.rowcount} products inserted.")
     except Error as e:
@@ -96,7 +127,6 @@ def main():
 
     conn = create_connection(database)
     if conn is not None:
-        create_table(conn)
         insert_sample_products(conn)
         conn.close()
     else:
