@@ -452,6 +452,25 @@ def delete_address(request, id):
         
     return redirect('address_page')
 
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_address(request, id):
+    address = get_object_or_404(Address, id=id, user=request.user)
+    
+    # Map frontend field names to model field names
+    data = request.data.copy()
+    if 'address' in data and 'address_line1' not in data:
+        data['address_line1'] = data.pop('address')
+    
+    serializer = AddressSerializer(address, data=data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            "message": "Address updated successfully",
+            "address": serializer.data
+        })
+    return Response(serializer.errors, status=400)
+
 @api_view(['POST', 'GET'])
 @permission_classes([IsAuthenticated])
 def logout_api(request):
