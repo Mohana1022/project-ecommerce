@@ -3,6 +3,9 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { useNavigate } from "react-router-dom";
+import { FaStar, FaCamera, FaTimes } from "react-icons/fa";
+import { getProductDetail, submitReview } from "../../api/axios";
+import toast from "react-hot-toast";
 
 import {
 
@@ -28,7 +31,7 @@ import {
 
 import { motion, AnimatePresence } from "framer-motion";
 
-import { fetchOrders } from "../../Store";
+import { fetchOrders, fetchProducts } from "../../Store";
 
 
 function Orders() {
@@ -38,8 +41,116 @@ function Orders() {
   const navigate = useNavigate();
 
   const { orders, isLoading, error } = useSelector((state) => state.order);
+  const { all: allProducts } = useSelector((state) => state.products);
 
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState(null);
+  const [selectedProductName, setSelectedProductName] = useState("");
+  const [newReview, setNewReview] = useState({
+    name: "",
+    rating: 5,
+    comment: "",
+    image: null,
+    imagePreview: null
+  });
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewReview({
+          ...newReview,
+          image: file,
+          imagePreview: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedProductId) {
+      toast.error("Invalid product ID. Cannot submit review.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('reviewer_name', newReview.name);
+      formData.append('rating', newReview.rating);
+      formData.append('comment', newReview.comment);
+      if (newReview.image) {
+        formData.append('pictures', newReview.image);
+      }
+
+      await submitReview(selectedProductId, formData);
+
+      setIsReviewModalOpen(false);
+      setNewReview({
+        name: "",
+        rating: 5,
+        comment: "",
+        image: null,
+        imagePreview: null
+      });
+      toast.success("Review submitted successfully!");
+      dispatch(fetchOrders());
+      navigate(`/product/${encodeURIComponent(selectedProductName)}`);
+    } catch (err) {
+      console.error("Submission error:", err);
+      const errorMsg = err.response?.data?.error ||
+        (err.response?.data && typeof err.response.data === 'object' ? Object.values(err.response.data)[0] : null) ||
+        "Error submitting review";
+      toast.error(typeof errorMsg === 'string' ? errorMsg : "Error submitting review");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openReviewModal = (item) => {
+    let productId = item.product;
+
+    // Fallback: If product ID is null in the order item, try to find it in the products store by name
+    if (!productId && allProducts?.length > 0) {
+      const found = allProducts.find(p => p.name === item.product_name);
+      if (found) {
+        productId = found.id;
+      }
+    }
+
+    if (!productId) {
+      toast.error("Product information missing for this order item. If this is an old order or the product was deleted, it might not be reviewable.");
+      return;
+    }
+
+    setSelectedProductId(productId);
+    setSelectedProductName(item.product_name);
+
+    if (item.user_review) {
+      setNewReview({
+        name: item.user_review.reviewer_name || "",
+        rating: item.user_review.rating || 5,
+        comment: item.user_review.comment || "",
+        image: null,
+        imagePreview: item.user_review.pictures ? `http://127.0.0.1:8000${item.user_review.pictures}` : null
+      });
+    } else {
+      setNewReview({
+        name: "",
+        rating: 5,
+        comment: "",
+        image: null,
+        imagePreview: null
+      });
+    }
+
+    setIsReviewModalOpen(true);
+  };
 
 
   useEffect(() => {
@@ -55,8 +166,10 @@ function Orders() {
     }
 
     dispatch(fetchOrders());
-
-  }, [dispatch, navigate]);
+    if (!allProducts || allProducts.length === 0) {
+      dispatch(fetchProducts());
+    }
+  }, [dispatch, navigate, allProducts]);
 
 
   const toggleExpand = (transactionId) => {
@@ -399,12 +512,17 @@ function Orders() {
                           </div>
 
 
-                          <span className="font-black text-gray-900">
-
-                            ₹{(Number(item.product_price) * item.quantity).toFixed(2)}
-
-                          </span>
-
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => openReviewModal(item)}
+                              className="px-4 py-2 bg-violet-50 text-violet-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-violet-600 hover:text-white transition-all border border-violet-100 shadow-sm"
+                            >
+                              {item.user_review ? "Edit Review" : "Write Review"}
+                            </button>
+                            <span className="font-black text-gray-900">
+                              ₹{(Number(item.product_price) * item.quantity).toFixed(2)}
+                            </span>
+                          </div>
                         </div>
 
                       ))}
@@ -478,6 +596,103 @@ function Orders() {
 
       </div >
 
+      {/* WRITE REVIEW MODAL */}
+      <AnimatePresence>
+        {isReviewModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsReviewModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            ></motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-8 md:p-12 overflow-hidden"
+            >
+              <button
+                onClick={() => setIsReviewModalOpen(false)}
+                className="absolute top-8 right-8 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <FaTimes size={24} />
+              </button>
+              <h2 className="text-3xl font-black text-gray-900 mb-1">{selectedProductId && orders.some(o => o.items.some(i => i.product === selectedProductId && i.user_review)) ? "Edit Review" : "Write a Review"}</h2>
+              <p className="text-[10px] font-black text-violet-600 uppercase tracking-[2px] mb-6">{selectedProductName}</p>
+
+              <form onSubmit={handleReviewSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Your Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newReview.name}
+                    onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Rating</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setNewReview({ ...newReview, rating: star })}
+                        className={`text-2xl transition-all ${star <= newReview.rating ? "text-yellow-400 scale-110" : "text-gray-200 hover:text-yellow-200"}`}
+                      >
+                        <FaStar />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Your Comment</label>
+                  <textarea
+                    required
+                    rows="4"
+                    value={newReview.comment}
+                    onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+                    className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all resize-none"
+                  ></textarea>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Upload Photo</label>
+                  <div className="flex items-center gap-4">
+                    <label className="cursor-pointer group relative w-20 h-20 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center hover:border-violet-400 hover:bg-violet-50 transition-all overflow-hidden font-bold">
+                      {newReview.imagePreview ? (
+                        <img src={newReview.imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                      ) : (
+                        <FaCamera className="text-gray-400 group-hover:text-violet-500 transition-colors" />
+                      )}
+                      <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                    </label>
+                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Add a photo to your review</p>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full py-5 bg-gradient-to-br from-violet-600 to-purple-700 text-white rounded-[24px] font-black text-lg shadow-xl shadow-violet-500/20 hover:shadow-violet-500/40 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3 ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>Processing...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {selectedProductId && orders.some(o => o.items.some(i => String(i.product) === String(selectedProductId) && i.user_review)) ? "Update Review" : "Submit Review"}
+                    </>
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div >
 
   );

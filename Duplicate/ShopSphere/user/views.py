@@ -328,8 +328,13 @@ def process_payment(request):
                 for item_data in items_from_request:
                     price = Decimal(str(item_data.get('price', 0)))
                     quantity = int(item_data.get('quantity', 1))
+                    
+                    # Try to find the product object to maintain the FK relation
+                    product_obj = Product.objects.filter(name=item_data.get('name')).first()
+                    
                     OrderItem.objects.create(
                         order=order,
+                        product=product_obj,
                         product_name=item_data.get('name'),
                         quantity=quantity,
                         product_price=price,

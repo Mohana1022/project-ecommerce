@@ -3,10 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    FaStar, FaStarHalfAlt, FaRegStar, FaPlus, FaMinus, FaShoppingCart, FaBolt, FaHeart, FaTruck, FaUndo, FaMapMarkerAlt, FaChevronLeft, FaCamera, FaTimes, FaUser
+    FaStar, FaStarHalfAlt, FaRegStar, FaPlus, FaMinus, FaShoppingCart, FaBolt, FaHeart, FaTruck, FaUndo, FaMapMarkerAlt, FaChevronLeft, FaUser
 } from "react-icons/fa";
 import { AddToCart, AddToWishlist, RemoveFromWishlist } from "../../Store";
-import { getProductDetail, submitReview } from "../../api/axios";
+import { getProductDetail } from "../../api/axios";
 import toast from "react-hot-toast";
 
 // Mock Rating Component
@@ -40,17 +40,7 @@ const ProductDetails = () => {
     const [mainImage, setMainImage] = useState("");
     const [quantity, setQuantity] = useState(1);
     const [selectedImgIndex, setSelectedImgIndex] = useState(0);
-    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [reviews, setReviews] = useState([]);
-    const [canEditReview, setCanEditReview] = useState(false);
-    const [daysLeft, setDaysLeft] = useState(0);
-    const [newReview, setNewReview] = useState({
-        name: "",
-        rating: 5,
-        comment: "",
-        image: null,
-        imagePreview: null
-    });
 
     const normalizeImagePath = (path) => {
         if (!path) return "/public/placeholder.jpg";
@@ -87,7 +77,7 @@ const ProductDetails = () => {
                     setMainImage(normalizedImages[0] || "/public/placeholder.jpg");
                 }
 
-                if (data.reviews) {
+                if (data.reviews && data.reviews.length > 0) {
                     setReviews(data.reviews.map(r => ({
                         ...r,
                         name: r.reviewer_name || r.username || "Anonymous",
@@ -95,17 +85,17 @@ const ProductDetails = () => {
                         date: new Date(r.created_at).toLocaleDateString(),
                         image: r.pictures ? normalizeImagePath(r.pictures) : null
                     })));
-                }
-
-                setCanEditReview(data.can_edit_review);
-                setDaysLeft(data.days_left);
-                if (data.user_review) {
-                    setNewReview(prev => ({
-                        ...prev,
-                        name: data.user_review.reviewer_name || "",
-                        rating: data.user_review.rating,
-                        comment: data.user_review.comment
-                    }));
+                } else if (data.user_review) {
+                    const r = data.user_review;
+                    setReviews([{
+                        ...r,
+                        name: r.reviewer_name || r.username || "Anonymous",
+                        avatar: (r.reviewer_name || r.username || "A").substring(0, 2).toUpperCase(),
+                        date: new Date(r.created_at).toLocaleDateString(),
+                        image: r.pictures ? normalizeImagePath(r.pictures) : null
+                    }]);
+                } else {
+                    setReviews([]);
                 }
             } catch (err) {
                 console.error("Error fetching product details:", err);
@@ -115,52 +105,9 @@ const ProductDetails = () => {
         fetchDetails();
     }, [id, allProducts]);
 
-    const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setNewReview({
-                    ...newReview,
-                    image: file,
-                    imagePreview: reader.result
-                });
-            };
-            reader.readAsDataURL(file);
-        }
-    };
 
-    const handleReviewSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const formData = new FormData();
-            formData.append('reviewer_name', newReview.name);
-            formData.append('rating', newReview.rating);
-            formData.append('comment', newReview.comment);
-            if (newReview.image) {
-                formData.append('pictures', newReview.image);
-            }
 
-            await submitReview(product.id, formData);
 
-            setIsReviewModalOpen(false);
-            toast.success("Review submitted successfully!");
-
-            // Re-fetch details to show new review
-            const data = await getProductDetail(product.id);
-            if (data.reviews) {
-                setReviews(data.reviews.map(r => ({
-                    ...r,
-                    name: r.reviewer_name || r.username || "Anonymous",
-                    avatar: (r.reviewer_name || r.username || "A").substring(0, 2).toUpperCase(),
-                    date: new Date(r.created_at).toLocaleDateString(),
-                    image: r.pictures ? normalizeImagePath(r.pictures) : null
-                })));
-            }
-        } catch (err) {
-            toast.error(err.response?.data?.error || "Error submitting review");
-        }
-    };
 
     const isInWishlist = (itemName) => {
         return wishlist.some((item) => item.name === itemName);
@@ -369,19 +316,7 @@ const ProductDetails = () => {
                                 <span className="text-gray-400 font-bold">Based on {reviews.length} reviews</span>
                             </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                            <button
-                                onClick={() => setIsReviewModalOpen(true)}
-                                className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-black text-[13px] uppercase tracking-[2px] hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95"
-                            >
-                                {canEditReview ? "Edit Your Review" : "Write a Review"}
-                            </button>
-                            {canEditReview && (
-                                <p className="text-[10px] font-black text-violet-600 uppercase tracking-wider">
-                                    {daysLeft} days left to edit
-                                </p>
-                            )}
-                        </div>
+
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -428,91 +363,8 @@ const ProductDetails = () => {
                 </div>
             </div>
 
-            {/* WRITE REVIEW MODAL */}
-            <AnimatePresence>
-                {isReviewModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsReviewModalOpen(false)}
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                        ></motion.div>
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-8 md:p-12 overflow-hidden"
-                        >
-                            <button
-                                onClick={() => setIsReviewModalOpen(false)}
-                                className="absolute top-8 right-8 text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                                <FaTimes size={24} />
-                            </button>
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">Write a Review</h2>
-                            <form onSubmit={handleReviewSubmit} className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Your Name</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={newReview.name}
-                                        onChange={(e) => setNewReview({ ...newReview, name: e.target.value })}
-                                        className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Rating</label>
-                                    <div className="flex gap-2">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <button
-                                                key={star}
-                                                type="button"
-                                                onClick={() => setNewReview({ ...newReview, rating: star })}
-                                                className={`text-2xl transition-all ${star <= newReview.rating ? "text-yellow-400 scale-110" : "text-gray-200 hover:text-yellow-200"}`}
-                                            >
-                                                <FaStar />
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Your Comment</label>
-                                    <textarea
-                                        required
-                                        rows="4"
-                                        value={newReview.comment}
-                                        onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
-                                        className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-violet-500/20 transition-all resize-none"
-                                    ></textarea>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-gray-400 uppercase tracking-[2px] block">Upload Photo</label>
-                                    <div className="flex items-center gap-4">
-                                        <label className="cursor-pointer group relative w-20 h-20 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center hover:border-violet-400 hover:bg-violet-50 transition-all overflow-hidden font-bold">
-                                            {newReview.imagePreview ? (
-                                                <img src={newReview.imagePreview} className="w-full h-full object-cover" alt="Preview" />
-                                            ) : (
-                                                <FaCamera className="text-gray-400 group-hover:text-violet-500 transition-colors" />
-                                            )}
-                                            <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                                        </label>
-                                        <p className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Add a photo to your review</p>
-                                    </div>
-                                </div>
-                                <button
-                                    type="submit"
-                                    className="w-full py-5 bg-gradient-to-br from-violet-600 to-purple-700 text-white rounded-[24px] font-black text-lg shadow-xl shadow-violet-500/20 hover:shadow-violet-500/40 hover:-translate-y-1 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                >
-                                    {canEditReview ? "Update Review" : "Submit Review"}
-                                </button>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
+
+
         </div>
     );
 };

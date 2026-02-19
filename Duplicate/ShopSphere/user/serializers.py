@@ -45,9 +45,43 @@ class AddressSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    user_review = serializers.SerializerMethodField()
+    product = serializers.SerializerMethodField()
+
     class Meta:
         model = OrderItem
-        fields = '__all__'
+        fields = ['id', 'order', 'product', 'vendor', 'product_name', 'product_price', 'quantity', 'subtotal', 'vendor_status', 'user_review']
+
+    def get_product(self, obj):
+        if obj.product_id:
+            return obj.product_id
+        # Fallback: Fix on the fly if product is missing but name exists
+        from vendor.models import Product
+        p = Product.objects.filter(name=obj.product_name).first()
+        if p:
+            # Optionally update the object to avoid future lookups
+            obj.product = p
+            obj.save()
+            return p.id
+        return None
+
+    def get_user_review(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+            
+        product_id = obj.product_id
+        if not product_id:
+            from vendor.models import Product
+            p = Product.objects.filter(name=obj.product_name).first()
+            product_id = p.id if p else None
+            
+        if product_id:
+            from .models import Review
+            review = Review.objects.filter(user=request.user, Product_id=product_id).first()
+            if review:
+                return ReviewSerializer(review, context=self.context).data
+        return None
 
 
 class OrderSerializer(serializers.ModelSerializer):
