@@ -28,6 +28,7 @@ urlpatterns = [
     path('my_orders', views.my_orders, name='my_orders'),
     path('address', views.address_page, name="address_page"),
     path('delete-address/<int:id>', views.delete_address, name="delete_address"),
+    path('update-address/<int:id>', views.update_address, name="update_address"),
 
     # #Reviews
     # '''path('my_reviews', views.user_reviews, name='user_reviews'),
