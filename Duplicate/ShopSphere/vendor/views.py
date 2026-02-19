@@ -250,9 +250,12 @@ def vendor_home_view(request):
 
     # If approved, show products dashboard
     products = vendor.products.all()
+    reviews = Review.objects.filter(Product__in=products).order_by('-created_at')
+    
     return render(request, 'vendor_dashboard.html', {
         'vendor': vendor,
-        'products': products
+        'products': products,
+        'reviews': reviews
     })
 
 

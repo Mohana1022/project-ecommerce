@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import (AuthUser, Cart, CartItem, Order, OrderItem, Address, 
                      UserWallet, WalletTransaction, OrderReturn, Refund, 
                      TwoFactorAuth, Notification, Dispute, Coupon, CouponUsage, Review)
+from django.utils import timezone
 from vendor.models import Product, ProductImage
 
 
@@ -203,13 +204,26 @@ class CouponUsageSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     username = serializers.SerializerMethodField()
     product_id = serializers.IntegerField(source='Product.id', read_only=True)
+    can_edit_review = serializers.SerializerMethodField()
+    days_left = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
-        fields = ['id', 'user', 'username', 'Product', 'product_id', 'reviewer_name', 'rating', 'comment', 'pictures', 'created_at']
-        read_only_fields = ['user', 'Product']
+        fields = ['id', 'user', 'username', 'Product', 'product_id', 'order', 'reviewer_name', 'rating', 'comment', 'pictures', 'is_verified', 'created_at', 'can_edit_review', 'days_left']
+        read_only_fields = ['user', 'Product', 'is_verified']
 
     def get_username(self, obj):
         if obj.user:
             return obj.user.username
         return obj.reviewer_name or "Anonymous"
+
+    def get_can_edit_review(self, obj):
+        time_diff = timezone.now() - obj.created_at
+        return time_diff.days < 5
+
+    def get_days_left(self, obj):
+        time_diff = timezone.now() - obj.created_at
+        days_passed = time_diff.days
+        if days_passed < 5:
+            return 5 - days_passed
+        return 0

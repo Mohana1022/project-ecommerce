@@ -85,15 +85,6 @@ const ProductDetails = () => {
                         date: new Date(r.created_at).toLocaleDateString(),
                         image: r.pictures ? normalizeImagePath(r.pictures) : null
                     })));
-                } else if (data.user_review) {
-                    const r = data.user_review;
-                    setReviews([{
-                        ...r,
-                        name: r.reviewer_name || r.username || "Anonymous",
-                        avatar: (r.reviewer_name || r.username || "A").substring(0, 2).toUpperCase(),
-                        date: new Date(r.created_at).toLocaleDateString(),
-                        image: r.pictures ? normalizeImagePath(r.pictures) : null
-                    }]);
                 } else {
                     setReviews([]);
                 }
@@ -316,7 +307,6 @@ const ProductDetails = () => {
                                 <span className="text-gray-400 font-bold">Based on {reviews.length} reviews</span>
                             </div>
                         </div>
-
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

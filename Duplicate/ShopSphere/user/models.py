@@ -274,50 +274,50 @@ class Payment(models.Model):
         return f"Payment {self.transaction_id} - {self.status}"
 
 
-class ProductReview(models.Model):
-    """Product reviews and ratings"""
-    product = models.ForeignKey('vendor.Product', on_delete=models.CASCADE, related_name='product_reviews_legacy')
-    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name='product_reviews')
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='order_reviews_legacy')
-    
-    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
-    comment = models.TextField(blank=True)
-    
-    is_verified = models.BooleanField(default=False)  # Verified purchase
-    helpful_count = models.IntegerField(default=0)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('product', 'user')
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user.username} - {self.product.name} ({self.rating}★)"
-
-
-class VendorReview(models.Model):
-    """Vendor reviews and ratings"""
-    vendor = models.ForeignKey('vendor.VendorProfile', on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name='vendor_reviews')
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='vendor_reviews')
-    
-    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
-    comment = models.TextField(blank=True)
-    
-    is_verified = models.BooleanField(default=False)
-    helpful_count = models.IntegerField(default=0)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('vendor', 'user')
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user.username} - {self.vendor.shop_name} ({self.rating}★)"
+# class ProductReview(models.Model):
+#     """Product reviews and ratings"""
+#     product = models.ForeignKey('vendor.Product', on_delete=models.CASCADE, related_name='product_reviews_legacy')
+#     user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name='product_reviews')
+#     order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='order_reviews_legacy')
+#     
+#     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+#     comment = models.TextField(blank=True)
+#     
+#     is_verified = models.BooleanField(default=False)  # Verified purchase
+#     helpful_count = models.IntegerField(default=0)
+#     
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+# 
+#     class Meta:
+#         unique_together = ('product', 'user')
+#         ordering = ['-created_at']
+# 
+#     def __str__(self):
+#         return f"{self.user.username} - {self.product.name} ({self.rating}★)"
+# 
+# 
+# class VendorReview(models.Model):
+#     """Vendor reviews and ratings"""
+#     vendor = models.ForeignKey('vendor.VendorProfile', on_delete=models.CASCADE, related_name='reviews')
+#     user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name='vendor_reviews')
+#     order = models.ForeignKey(Order, on_delete=models.CASCADE, null=True, related_name='vendor_reviews')
+#     
+#     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+#     comment = models.TextField(blank=True)
+#     
+#     is_verified = models.BooleanField(default=False)
+#     helpful_count = models.IntegerField(default=0)
+#     
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+# 
+#     class Meta:
+#         unique_together = ('vendor', 'user')
+#         ordering = ['-created_at']
+# 
+#     def __str__(self):
+#         return f"{self.user.username} - {self.vendor.shop_name} ({self.rating}★)"
 
 
 # ===============================================
@@ -676,11 +676,18 @@ class CouponUsage(models.Model):
 class Review(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     Product = models.ForeignKey('vendor.Product', on_delete=models.CASCADE, related_name='reviews')
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name='product_reviews')
     rating = models.IntegerField(choices=[(i, i) for i in range(1, 6)])
     comment = models.TextField()
     pictures = models.ImageField(upload_to='review_pics/', null=True, blank=True)
-    reviewer_name = models.CharField(max_length=100, blank=True, null=True) # Added this
+    reviewer_name = models.CharField(max_length=100, blank=True, null=True)
+    is_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('Product', 'user')
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Review for {self.Product.name} by {self.reviewer_name or (self.user.username if self.user else 'Anonymous')}"

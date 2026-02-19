@@ -7,14 +7,16 @@
                 <button class="btn" onclick="document.getElementById('reviewForm').style.display='block'; this.style.display='none'">
                     Edit Your Review
                 </button>
-                <p>You have {{ days_left }} days left to edit.</p>
+                <p>You have {{ days_left }} days left to edit your review.</p>
             {% else %}
-                <p>Already reviewed. 5-day window has passed.</p>
+                <p>You have already reviewed this product. The 5-day editing window has passed.</p>
             {% endif %}
-        {% else %}
+        {% elif has_ordered %}
             <button class="btn" onclick="document.getElementById('reviewForm').style.display='block'; this.style.display='none'">
                 Write a Review
             </button>
+        {% else %}
+            <p>You can only review products you have purchased and received.</p>
         {% endif %}
     {% else %}
         <a href="{% url 'user_login' %}" class="btn">Login to Write a Review</a>
@@ -24,7 +26,7 @@
 <!-- Review Form (Pre-filled if editing) -->
 <div id="reviewForm" class="review-form">
     <h2>{% if user_review %}Edit Your Review{% else %}Your Review{% endif %}</h2>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" action="{% url 'submit_review_api' product.id %}" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="text" name="reviewer_name" value="{{ user_review.reviewer_name|default:user.username }}">
 

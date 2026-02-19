@@ -404,7 +404,7 @@ def my_orders(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')
     
     if request.accepted_renderer.format == 'json':
-        serializer = OrderSerializer(orders, many=True)
+        serializer = OrderSerializer(orders, many=True, context={'request': request})
         return Response(serializer.data)
         
     return render(request, "my_orders.html", {"orders": orders})
@@ -507,8 +507,16 @@ def product_detail(request, product_id):
     user_review = None
     can_edit_review = False
     days_left = 0
+    has_ordered = False
     
     if request.user.is_authenticated:
+        # Check if the user has a delivered order for this product
+        has_ordered = OrderItem.objects.filter(
+            order__user=request.user,
+            product_id=product.id,
+            order__status__in=['delivered', 'Delivered']
+        ).exists()
+        
         user_review = Review.objects.filter(user=request.user, Product=product).first()
         if user_review:
             time_diff = timezone.now() - user_review.created_at
@@ -526,7 +534,8 @@ def product_detail(request, product_id):
             "reviews": reviews_data,
             "user_review": ReviewSerializer(user_review).data if user_review else None,
             "can_edit_review": can_edit_review,
-            "days_left": days_left
+            "days_left": days_left,
+            "has_ordered": has_ordered
         })
 
     return render(request, "user_product_detail.html", {
@@ -534,7 +543,8 @@ def product_detail(request, product_id):
         "reviews": reviews,
         "user_review": user_review,
         "can_edit_review": can_edit_review,
-        "days_left": days_left
+        "days_left": days_left,
+        "has_ordered": has_ordered
     })
 
 @api_view(['POST'])
@@ -543,16 +553,29 @@ def submit_review_api(request, product_id):
     product = get_object_or_404(Product, id=product_id)
     user_review = Review.objects.filter(user=request.user, Product=product).first()
     
+    # Try to find a delivered order to mark as verified and allow review
+    order_item = OrderItem.objects.filter(
+        order__user=request.user,
+        product_id=product.id,
+        order__status__in=['delivered', 'Delivered']
+    ).first()
+    
+    order = order_item.order if order_item else None
+    
     if user_review:
+        # Restrictions: Only one review per product, can edit within 5 days
         time_diff = timezone.now() - user_review.created_at
         if time_diff.days >= 5:
             return Response({"error": "Review editing window (5 days) has passed"}, status=403)
         serializer = ReviewSerializer(user_review, data=request.data, partial=True)
     else:
+        # Restrictions: Must have ordered the product to review it
+        if not order:
+            return Response({"error": "You can only review products you have ordered and received."}, status=403)
         serializer = ReviewSerializer(data=request.data)
     
     if serializer.is_valid():
-        serializer.save(user=request.user, Product=product)
+        serializer.save(user=request.user, Product=product, order=order, is_verified=True if order else False)
         return Response(serializer.data, status=201 if not user_review else 200)
     return Response(serializer.errors, status=400)
 

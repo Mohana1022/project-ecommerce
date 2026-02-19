@@ -493,32 +493,59 @@ function Orders() {
 
                             </div>
 
-                            <div>
-
-                              <span className="font-bold text-gray-800 text-sm block mb-0.5">
-
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-black text-gray-900 line-clamp-1 mb-1 group-hover:text-violet-600 transition-colors">
                                 {item.product_name}
+                              </h4>
+                              {item.user_review && (
+                                <div className="flex flex-col gap-1 mb-2 bg-violet-50/50 p-3 rounded-xl border border-violet-100/50 w-fit max-w-md">
+                                  <div className="flex gap-0.5">
+                                    {[...Array(5)].map((_, i) => (
+                                      <FaStar
+                                        key={i}
+                                        className={`text-[10px] ${i < item.user_review.rating ? "text-yellow-400" : "text-gray-200"}`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <p className="text-[11px] text-gray-600 font-medium italic line-clamp-2">
+                                    "{item.user_review.comment}"
+                                  </p>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-3">
+                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
 
-                              </span>
+                                  Unit Price: ₹{Number(item.product_price).toFixed(2)}
 
-                              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-
-                                Unit Price: ₹{Number(item.product_price).toFixed(2)}
-
-                              </span>
-
+                                </span>
+                              </div>
                             </div>
 
                           </div>
 
 
                           <div className="flex items-center gap-4">
-                            <button
-                              onClick={() => openReviewModal(item)}
-                              className="px-4 py-2 bg-violet-50 text-violet-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-violet-600 hover:text-white transition-all border border-violet-100 shadow-sm"
-                            >
-                              {item.user_review ? "Edit Review" : "Write Review"}
-                            </button>
+                            {item.user_review ? (
+                              item.user_review.can_edit_review ? (
+                                <button
+                                  onClick={() => openReviewModal(item)}
+                                  className="px-4 py-2 bg-violet-50 text-violet-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-violet-600 hover:text-white transition-all border border-violet-100 shadow-sm"
+                                >
+                                  Alter the Review
+                                </button>
+                              ) : (
+                                <span className="text-[9px] font-black text-gray-400 uppercase bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100 tracking-wider">
+                                  Review Closed
+                                </span>
+                              )
+                            ) : (
+                              <button
+                                onClick={() => openReviewModal(item)}
+                                className="px-4 py-2 bg-violet-50 text-violet-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-violet-600 hover:text-white transition-all border border-violet-100 shadow-sm"
+                              >
+                                Write a Review
+                              </button>
+                            )}
                             <span className="font-black text-gray-900">
                               ₹{(Number(item.product_price) * item.quantity).toFixed(2)}
                             </span>
@@ -622,7 +649,9 @@ function Orders() {
               >
                 <FaTimes size={24} />
               </button>
-              <h2 className="text-3xl font-black text-gray-900 mb-1">{selectedProductId && orders.some(o => o.items.some(i => i.product === selectedProductId && i.user_review)) ? "Edit Review" : "Write a Review"}</h2>
+              <h2 className="text-3xl font-black text-gray-900 mb-1">
+                {selectedProductId && orders.some(o => o.items.some(i => i.product === selectedProductId && i.user_review)) ? "Alter the Review" : "Write a Review"}
+              </h2>
               <p className="text-[10px] font-black text-violet-600 uppercase tracking-[2px] mb-6">{selectedProductName}</p>
 
               <form onSubmit={handleReviewSubmit} className="space-y-6">
