@@ -410,7 +410,12 @@ def address_page(request):
     if request.method == 'POST':
         # Use Serializer for API/JSON requests
         if request.accepted_renderer.format == 'json':
-            serializer = AddressSerializer(data=request.data)
+            # Map frontend field names to model field names
+            data = request.data.copy()
+            if 'address' in data and 'address_line1' not in data:
+                data['address_line1'] = data.pop('address')
+            
+            serializer = AddressSerializer(data=data)
             if serializer.is_valid():
                 serializer.save(user=request.user)
                 return Response({

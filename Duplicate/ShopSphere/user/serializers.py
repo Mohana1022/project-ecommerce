@@ -34,9 +34,13 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class AddressSerializer(serializers.ModelSerializer):
+    # Expose address_line1 as 'address' for frontend compatibility
+    address = serializers.CharField(source='address_line1', read_only=True)
+
     class Meta:
         model = Address
-        fields = '__all__'
+        fields = ['id', 'user', 'name', 'phone', 'email', 'address_line1', 'address_line2',
+                  'city', 'state', 'pincode', 'country', 'is_default', 'created_at', 'address']
         read_only_fields = ['user']
 
 
