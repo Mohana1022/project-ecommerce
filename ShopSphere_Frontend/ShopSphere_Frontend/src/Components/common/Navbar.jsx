@@ -420,7 +420,7 @@ function Navbar() {
                                                 My Profile
                                             </Link>
                                             <Link
-                                                to="/orders"
+                                                to="/profile/orders"
                                                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-orange-100 hover:bg-orange-400/50 hover:text-white rounded-xl transition-all"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
