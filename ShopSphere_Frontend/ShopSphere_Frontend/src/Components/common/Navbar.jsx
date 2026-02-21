@@ -235,7 +235,7 @@ function Navbar() {
                     >
                         <img src="/s_logo.png" alt="ShopSphere Logo" className="w-20 h-20 object-contain transition-transform duration-300 group-hover:scale-110 translate-y-0.5" />
                         <span className="-ml-6 text-xl sm:text-2xl font-bold text-white tracking-wide group-hover:text-orange-200 transition-colors duration-300 hidden sm:block drop-shadow-md">
-                        hopSphere
+                            hopSphere
                         </span>
                     </Link>
 
@@ -420,7 +420,7 @@ function Navbar() {
                                                 My Profile
                                             </Link>
                                             <Link
-                                                to="/profile/orders"
+                                                to="/orders"
                                                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-orange-100 hover:bg-orange-400/50 hover:text-white rounded-xl transition-all"
                                                 onClick={() => setProfileDropdownOpen(false)}
                                             >
