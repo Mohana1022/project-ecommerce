@@ -12,32 +12,22 @@ import {
     Calendar,
     Clock
 } from "lucide-react";
-import { useSelector, useDispatch } from "react-redux";
-import { fetchOrders } from "../../Store";
+import { useSelector } from "react-redux";
 
 const OrderTracking = () => {
     const { orderId } = useParams();
     const navigate = useNavigate();
-    const dispatch = useDispatch();
     const { orders } = useSelector((state) => state.order);
 
     const [order, setOrder] = useState(null);
-
-    // Fetch orders if not already loaded
-    useEffect(() => {
-        if (orders.length === 0) {
-            dispatch(fetchOrders());
-        }
-    }, [dispatch, orders.length]);
 
     // Find order from state or use mock if not found for demo
     useEffect(() => {
         const foundOrder = orders.find(o => String(o.id) === orderId || o.transaction_id === orderId);
         if (foundOrder) {
             setOrder(foundOrder);
-        } else if (orders.length > 0) {
-            // If orders are loaded but this one isn't found, still try to show something or handle error
-            // For now, keeping mock as fallback for demo
+        } else {
+            // Mock order data if not found (for demonstration/fresh success page)
             setOrder({
                 id: orderId || "ORD-55421",
                 created_at: new Date().toISOString(),
@@ -259,7 +249,7 @@ const OrderTracking = () => {
                 </div>
             </div>
 
-            <style>{`
+            <style jsx>{`
         @keyframes bounce-slow {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-3px); }
