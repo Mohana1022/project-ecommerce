@@ -26,6 +26,7 @@ import VerifyPAN from "../Pages/customer/VerifyPAN";
 import Sidebar from "../Pages/vendor/Sidebar";
 import Dashboard from "../Pages/vendor/Dashboard";
 import Orders from "../Pages/vendor/Orders";
+import CustomerOrders from "../Pages/customer/Orders";
 import AddProduct from "../Pages/vendor/AddProduct";
 import Products from "../Pages/vendor/Products";
 import Earnings from "../Pages/vendor/Earnings";
@@ -58,6 +59,7 @@ function AppRoutes() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/place-order" element={<PlaceOrder />} />
+            <Route path="/orders" element={<CustomerOrders />} />
 
 
             {/* <Route path="/about" element={<AboutUs />} /> */}

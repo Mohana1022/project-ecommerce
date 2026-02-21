@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     FaStar, FaStarHalfAlt, FaRegStar, FaPlus, FaMinus, FaShoppingCart, FaBolt, FaHeart, FaTruck, FaUndo, FaMapMarkerAlt, FaChevronLeft, FaUser, FaArrowRight
 } from "react-icons/fa";
-import { AddToCart, AddToWishlist, RemoveFromWishlist, fetchProducts } from "../../Store";
+import { AddToCart, fetchWishlist, toggleWishlist, fetchProducts } from "../../Store";
 import { getProductDetail } from "../../api/axios";
 import toast from "react-hot-toast";
 import ProductCard from "../../Components/ProductCard";
@@ -35,7 +35,7 @@ const ProductDetails = () => {
     const dispatch = useDispatch();
 
     const allProducts = useSelector((state) => state.products.all);
-    const wishlist = useSelector((state) => state.wishlist);
+    const { items: wishlistItems } = useSelector((state) => state.wishlist);
 
     const [product, setProduct] = useState(null);
     const [mainImage, setMainImage] = useState("");
@@ -121,10 +121,11 @@ const ProductDetails = () => {
         if (!allProducts || allProducts.length === 0) {
             dispatch(fetchProducts());
         }
+        dispatch(fetchWishlist()); // Fetch wishlist on mount
     }, [dispatch, allProducts]);
 
-    const isInWishlist = (itemName) => {
-        return wishlist.some((item) => item.name === itemName);
+    const isInWishlist = (itemId) => {
+        return wishlistItems.some((item) => item.id === itemId);
     };
 
     const handleWishlistToggle = () => {
@@ -134,14 +135,7 @@ const ProductDetails = () => {
             navigate("/login");
             return;
         }
-
-        if (isInWishlist(product.name)) {
-            dispatch(RemoveFromWishlist(product));
-            toast.success("Removed from wishlist");
-        } else {
-            dispatch(AddToWishlist(product));
-            toast.success("Added to wishlist");
-        }
+        dispatch(toggleWishlist(product));
     };
 
     const handleAddToCart = () => {
@@ -162,13 +156,7 @@ const ProductDetails = () => {
             navigate("/login");
             return;
         }
-        if (isInWishlist(item.name)) {
-            dispatch(RemoveFromWishlist(item));
-            toast.success("Removed from wishlist");
-        } else {
-            dispatch(AddToWishlist(item));
-            toast.success("Added to wishlist");
-        }
+        dispatch(toggleWishlist(item));
     };
 
     const handleRelatedAddToCart = (item) => {
@@ -251,10 +239,10 @@ const ProductDetails = () => {
                             </div>
                             <button
                                 onClick={handleWishlistToggle}
-                                className={`absolute top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${isInWishlist(product.name) ? "bg-red-500 text-white" : "bg-white text-gray-400 hover:text-red-500"
+                                className={`absolute top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${isInWishlist(product.id) ? "bg-red-500 text-white" : "bg-white text-gray-400 hover:text-red-500"
                                     }`}
                             >
-                                <FaHeart size={20} className={isInWishlist(product.name) ? "animate-bounce" : ""} />
+                                <FaHeart size={20} className={isInWishlist(product.id) ? "animate-bounce" : ""} />
                             </button>
                         </div>
                     </div>

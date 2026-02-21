@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (AuthUser, Cart, CartItem, Order, OrderItem, Address, 
                      UserWallet, WalletTransaction, OrderReturn, Refund, 
-                     TwoFactorAuth, Notification, Dispute, Coupon, CouponUsage, Review)
+                     TwoFactorAuth, Notification, Dispute, Coupon, CouponUsage, Review,
+                     Wishlist, WishlistItem)
 from vendor.models import Product, ProductImage
 
 
@@ -263,4 +264,20 @@ class ReviewSerializer(serializers.ModelSerializer):
         time_diff = now - created_at
         left = 5 - time_diff.days
         return max(0, left)
+
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model = WishlistItem
+        fields = ['id', 'product', 'added_at']
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    items = WishlistItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'user', 'items', 'created_at']
 

@@ -290,7 +290,7 @@ export default function TrendingProducts({
                                                     <FaHeart
                                                         size={11}
                                                         className={
-                                                            isInWishlist(item.name)
+                                                            isInWishlist(item.id)
                                                                 ? "text-rose-500"
                                                                 : "text-gray-500 group-hover/wish:text-rose-400"
                                                         }

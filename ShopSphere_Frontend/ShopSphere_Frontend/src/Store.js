@@ -1,5 +1,6 @@
 import { configureStore, createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getMyOrders, getProducts } from "./api/axios";
+import { getMyOrders, getProducts, getWishlist, addToWishlist, removeFromWishlist } from "./api/axios";
+import toast from "react-hot-toast";
 
 // PRODUCTS SLICE
 
@@ -158,17 +159,82 @@ export const {
 
 // WISHLIST SLICE
 
+export const fetchWishlist = createAsyncThunk(
+  "wishlist/fetchWishlist",
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await getWishlist();
+      // Backend returns { items: [{ product: {...} }, ...] }
+      return data.items.map(item => ({
+        ...item.product,
+        // Process product images like in fetchProducts
+        image: item.product.images?.[0]?.image
+          ? (item.product.images[0].image.startsWith('http')
+            ? item.product.images[0].image
+            : `http://127.0.0.1:8000${item.product.images[0].image}`)
+          : "/public/placeholder.jpg"
+      }));
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const toggleWishlist = createAsyncThunk(
+  "wishlist/toggleWishlist",
+  async (product, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const { wishlist } = getState();
+      const isItemInWishlist = wishlist.items.some(item => item.id === product.id);
+
+      if (isItemInWishlist) {
+        await removeFromWishlist(product.id);
+        dispatch(wishlistSlice.actions.RemoveFromWishlist(product));
+        toast.success("Removed from wishlist");
+      } else {
+        await addToWishlist(product.id);
+        dispatch(wishlistSlice.actions.AddToWishlist(product));
+        toast.success("Added to wishlist");
+      }
+      return product;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const wishlistSlice = createSlice({
   name: "wishlist",
-  initialState: [],
+  initialState: {
+    items: [],
+    isLoading: false,
+    error: null
+  },
   reducers: {
     AddToWishlist: (state, action) => {
-      const item = state.find(i => i.name === action.payload.name);
-      if (!item) state.push(action.payload);
+      const exists = state.items.find(i => i.id === action.payload.id);
+      if (!exists) state.items.push(action.payload);
     },
-    RemoveFromWishlist: (state, action) =>
-      state.filter(i => i.name !== action.payload.name),
-    clearWishlist: () => [],
+    RemoveFromWishlist: (state, action) => {
+      state.items = state.items.filter(i => i.id !== action.payload.id);
+    },
+    clearWishlist: (state) => {
+      state.items = [];
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchWishlist.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchWishlist.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.items = action.payload;
+      })
+      .addCase(fetchWishlist.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      });
   }
 });
 

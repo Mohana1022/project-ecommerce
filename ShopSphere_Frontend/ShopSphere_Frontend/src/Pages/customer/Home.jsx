@@ -8,7 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { fetchProducts, AddToCart, AddToWishlist, RemoveFromWishlist } from "../../Store";
+import { fetchProducts, AddToCart, fetchWishlist, toggleWishlist } from "../../Store";
 import toast from "react-hot-toast";
 import ProductCard from "../../Components/ProductCard";
 import TrendingProducts from "../../Components/TrendingProducts";
@@ -77,11 +77,12 @@ const Home = () => {
   // Update local search state when URL changes
   useEffect(() => {
     setSearchQuery(urlSearchQuery);
+    setCurrentPage(1); // Reset to page 1 when searching
   }, [urlSearchQuery]);
 
   const allProducts = useSelector((state) => state.products.all || []);
   const isLoading = useSelector((state) => state.products.isLoading);
-  const wishlist = useSelector((state) => state.wishlist);
+  const { items: wishlistItems } = useSelector((state) => state.wishlist);
 
   const productsByCategory = {
     All: allProducts,
@@ -100,6 +101,7 @@ const Home = () => {
 
   useEffect(() => {
     dispatch(fetchProducts());
+    dispatch(fetchWishlist()); // Fetch wishlist on mount
   }, [dispatch]);
 
   useEffect(() => {
@@ -125,13 +127,9 @@ const Home = () => {
       navigate("/login");
       return;
     }
-    if (isInWishlist(item.name)) {
-      dispatch(RemoveFromWishlist(item));
-      toast.success("Removed from wishlist");
-    } else {
-      dispatch(AddToWishlist(item));
-      toast.success("Added to wishlist");
-    }
+    dispatch(toggleWishlist(item));
+    // Toast is handled in toggleWishlist thunk or via another way, 
+    // but toggleWishlist doesn't handle toast yet. I'll add it in toggleWishlist.
   };
 
   const handleAddToCartClick = (item) => {
@@ -145,8 +143,8 @@ const Home = () => {
     toast.success("Added to cart");
   };
 
-  const isInWishlist = (itemName) => {
-    return wishlist.some((item) => item.name === itemName);
+  const isInWishlist = (itemId) => {
+    return wishlistItems.some((item) => item.id === itemId);
   };
 
   const paginate = (pageNumber) => {
@@ -191,80 +189,88 @@ const Home = () => {
         </div>
       </section>
 
-      {/* HERO CAROUSEL (Without Arrows) */}
-      <section className="relative w-full h-[400px] md:h-[550px] overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentBanner}
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
-            className="absolute inset-0"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent z-10" />
-            <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 z-20 flex flex-col justify-center px-6 md:px-24 lg:px-32">
-              <motion.div
-                initial={{ x: -50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.8 }}
-                className="max-w-3xl"
-              >
-                <motion.p
-                  className="text-orange-400 font-black tracking-[0.3em] uppercase text-xs mb-4"
+      {/* HERO CAROUSEL (Without Arrows) - HIDE IF SEARCHING */}
+      {!searchQuery && (
+        <section className="relative w-full h-[400px] md:h-[550px] overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentBanner}
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
+              className="absolute inset-0"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent z-10" />
+              <img src={banner.image} alt={banner.title} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 z-20 flex flex-col justify-center px-6 md:px-24 lg:px-32">
+                <motion.div
+                  initial={{ x: -50, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.8 }}
+                  className="max-w-3xl"
                 >
-                  {banner.subtitle}
-                </motion.p>
-                <motion.h1
-                  className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight"
-                >
-                  {banner.title}
-                </motion.h1>
-                <motion.p
-                  className="text-gray-300 text-base md:text-lg mb-8 max-w-xl leading-relaxed"
-                >
-                  {banner.description}
-                </motion.p>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => document.getElementById("products-section")?.scrollIntoView({ behavior: "smooth" })}
-                  className={`group w-fit px-10 py-4 bg-gradient-to-r ${banner.color} text-white font-black rounded-2xl flex items-center gap-3 shadow-xl transition-all duration-300`}
-                >
-                  {banner.cta} <ArrowRight size={20} />
-                </motion.button>
-              </motion.div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
+                  <motion.p
+                    className="text-orange-400 font-black tracking-[0.3em] uppercase text-xs mb-4"
+                  >
+                    {banner.subtitle}
+                  </motion.p>
+                  <motion.h1
+                    className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight"
+                  >
+                    {banner.title}
+                  </motion.h1>
+                  <motion.p
+                    className="text-gray-300 text-base md:text-lg mb-8 max-w-xl leading-relaxed"
+                  >
+                    {banner.description}
+                  </motion.p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => document.getElementById("products-section")?.scrollIntoView({ behavior: "smooth" })}
+                    className={`group w-fit px-10 py-4 bg-gradient-to-r ${banner.color} text-white font-black rounded-2xl flex items-center gap-3 shadow-xl transition-all duration-300`}
+                  >
+                    {banner.cta} <ArrowRight size={20} />
+                  </motion.button>
+                </motion.div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
 
-        {/* Progress Indicators (Only indicators, no arrows) */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-3 p-3 bg-black/20 backdrop-blur-xl rounded-full border border-white/10">
-          {BANNERS.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentBanner(idx)}
-              className={`h-1.5 rounded-full transition-all duration-700 ${currentBanner === idx ? "w-10 bg-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "w-1.5 bg-white/40 hover:bg-white/60"}`}
-            />
-          ))}
-        </div>
-      </section>
+          {/* Progress Indicators (Only indicators, no arrows) */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex gap-3 p-3 bg-black/20 backdrop-blur-xl rounded-full border border-white/10">
+            {BANNERS.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentBanner(idx)}
+                className={`h-1.5 rounded-full transition-all duration-700 ${currentBanner === idx ? "w-10 bg-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "w-1.5 bg-white/40 hover:bg-white/60"}`}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
-      {/* TRENDING PRODUCTS SECTION */}
-      <TrendingProducts
-        navigate={navigate}
-        handleWishlistClick={handleWishlistClick}
-        handleAddToCartClick={handleAddToCartClick}
-        isInWishlist={isInWishlist}
-      />
+      {/* TRENDING PRODUCTS SECTION - HIDE IF SEARCHING */}
+      {!searchQuery && (
+        <TrendingProducts
+          navigate={navigate}
+          handleWishlistClick={handleWishlistClick}
+          handleAddToCartClick={handleAddToCartClick}
+          isInWishlist={isInWishlist}
+        />
+      )}
 
       {/* PRODUCT GRID SECTION */}
       <section id="products-section" className="max-w-[1600px] mx-auto px-6 md:px-12 py-16">
         <div className="flex items-end justify-between mb-12">
           <div className="space-y-2">
-            <p className="text-orange-400 font-black tracking-widest text-xs uppercase">Curated Just for You</p>
-            <h3 className="text-3xl font-black text-gray-900 tracking-tight">FEATURED PRODUCTS</h3>
+            <p className="text-orange-400 font-black tracking-widest text-xs uppercase">
+              {searchQuery ? "Search Results Found" : "Curated Just for You"}
+            </p>
+            <h3 className="text-3xl font-black text-gray-900 tracking-tight uppercase">
+              {searchQuery ? `Products matching "${searchQuery}"` : "FEATURED PRODUCTS"}
+            </h3>
           </div>
           <p className="text-gray-400 text-xs font-bold hidden md:block uppercase tracking-widest">
             {filteredProducts.length} Items Available

@@ -7,8 +7,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 
-from .models import AuthUser, Cart, CartItem, Order, OrderItem, Address, Review, Payment
-from .serializers import RegisterSerializer, ProductSerializer, CartSerializer, OrderSerializer, AddressSerializer, ReviewSerializer
+from .models import AuthUser, Cart, CartItem, Order, OrderItem, Address, Review, Payment, Wishlist, WishlistItem
+from .serializers import RegisterSerializer, ProductSerializer, CartSerializer, OrderSerializer, AddressSerializer, ReviewSerializer, WishlistSerializer
 from .forms import AddressForm
 import uuid
 from django.db import transaction
@@ -690,3 +690,36 @@ def trending_products(request):
 
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def wishlist_view(request):
+    wishlist, created = Wishlist.objects.get_or_create(user=request.user)
+    serializer = WishlistSerializer(wishlist)
+    return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_to_wishlist(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    wishlist, created = Wishlist.objects.get_or_create(user=request.user)
+    
+    wishlist_item, item_created = WishlistItem.objects.get_or_create(wishlist=wishlist, product=product)
+    
+    if item_created:
+        return Response({"message": "Product added to wishlist"}, status=201)
+    else:
+        return Response({"message": "Product already in wishlist"}, status=200)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_from_wishlist(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    wishlist = get_object_or_404(Wishlist, user=request.user)
+    
+    wishlist_item = WishlistItem.objects.filter(wishlist=wishlist, product=product).first()
+    if wishlist_item:
+        wishlist_item.delete()
+        return Response({"message": "Product removed from wishlist"})
+    
+    return Response({"error": "Product not found in wishlist"}, status=404)

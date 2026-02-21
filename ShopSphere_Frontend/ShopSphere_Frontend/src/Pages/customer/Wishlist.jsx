@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
-import { RemoveFromWishlist, AddToCart } from '../../Store';
+import { RemoveFromWishlist, AddToCart, fetchWishlist, toggleWishlist } from '../../Store';
 import { FaHeart, FaShoppingCart, FaTrash, FaArrowLeft } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
@@ -10,20 +10,26 @@ import toast from 'react-hot-toast';
 // ============================================
 function Wishlist() {
   // Get wishlist state from Redux store
-  const wishlist = useSelector((state) => state.wishlist);
+  const { items, isLoading } = useSelector((state) => state.wishlist);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    dispatch(fetchWishlist());
+  }, [dispatch]);
 
   // ============================================
   // HANDLERS
   // ============================================
-  const handleAddToCart = (item) => {
+  const handleAddToCart = (e, item) => {
+    e.stopPropagation();
     dispatch(AddToCart(item));
-    toast.success("Moved to cart!");
+    toast.success("Added to cart!");
   };
 
-  const handleRemoveFromWishlist = (item) => {
-    dispatch(RemoveFromWishlist(item));
+  const handleRemoveFromWishlist = (e, item) => {
+    e.stopPropagation();
+    dispatch(toggleWishlist(item));
     toast.success("Removed from wishlist");
   };
 
@@ -39,18 +45,22 @@ function Wishlist() {
             My Wishlist
           </h1>
           <p className="text-xl text-gray-600">
-            {wishlist.length} {wishlist.length === 1 ? 'item' : 'items'} saved
+            {items.length} {items.length === 1 ? 'item' : 'items'} saved
           </p>
           <div className="w-24 h-1 bg-gradient-to-r from-orange-500 to-purple-500 mx-auto mt-6 rounded-full"></div>
         </div>
 
         {/* Wishlist Items */}
-        {wishlist && wishlist.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+          </div>
+        ) : items && items.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {wishlist.map((item, index) => (
+            {items.map((item, index) => (
               <div
-                key={`${item.name}-${index}`}
-                onClick={() => navigate(`/product/${encodeURIComponent(item.name)}`)}
+                key={`${item.id}-${index}`}
+                onClick={() => navigate(`/product/${item.id}`)}
                 className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 border border-orange-100 cursor-pointer"
               >
                 {/* Image Container */}
@@ -83,14 +93,14 @@ function Wishlist() {
                   {/* Actions */}
                   <div className="flex gap-3">
                     <button
-                      onClick={() => handleAddToCart(item)}
+                      onClick={(e) => handleAddToCart(e, item)}
                       className="flex-1 bg-gradient-to-r from-orange-400 to-purple-500 hover:from-orange-600 hover:to-purple-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <FaShoppingCart />
                       Add to Cart
                     </button>
                     <button
-                      onClick={() => handleRemoveFromWishlist(item)}
+                      onClick={(e) => handleRemoveFromWishlist(e, item)}
                       className="bg-red-100 hover:bg-red-200 text-red-600 font-semibold py-2.5 px-4 rounded-xl transition-all duration-300 flex items-center justify-center transform hover:scale-[1.05] active:scale-[0.95]"
                       title="Remove from wishlist"
                     >

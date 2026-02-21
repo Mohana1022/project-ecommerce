@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { clearCart, clearWishlist, clearOrders } from "../../Store";
+import { fetchWishlist, clearCart, clearWishlist, clearOrders } from "../../Store";
 import { logout as apiLogout } from "../../api/axios";
 import {
     FaShoppingCart,
@@ -15,6 +15,7 @@ import {
     FaBox,
     FaHome,
     FaMicrophone,
+    FaBoxOpen,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 
@@ -38,9 +39,9 @@ function Navbar() {
 
     // Redux state
     const cartItems = useSelector((state) => state.cart);
-    const wishlistItems = useSelector((state) => state.wishlist);
+    const wishlist = useSelector((state) => state.wishlist);
     const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-    const wishlistCount = wishlistItems.length;
+    const wishlistCount = wishlist.items.length;
 
     // Auth State
     const [user, setUser] = useState(null);
@@ -57,6 +58,10 @@ function Navbar() {
             }
         }
     }, [location.pathname]); // Re-check on route change (e.g. after login/redirect)
+
+    useEffect(() => {
+        dispatch(fetchWishlist());
+    }, [dispatch]);
 
     const handleLogout = () => {
         // Clear Redux State
@@ -75,17 +80,6 @@ function Navbar() {
         toast.success("Logged out successfully");
         navigate('/login');
     };
-
-    // ============================================
-    // NAVIGATION LINKS
-    // ============================================
-    const navLinks = [
-        // { name: "Home", path: "/" },
-    ];
-
-    // ============================================
-    // EFFECTS
-    // ============================================
 
     // Scroll effect for navbar shadow
     useEffect(() => {
@@ -113,41 +107,27 @@ function Navbar() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // ============================================
-    // HANDLERS
-    // ============================================
     const handleSearch = (e) => {
         e.preventDefault();
-        // Form submit carries no additional logic - real-time search handles filtering
     };
 
-    // Real-time search - update URL as user types
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchQuery(value);
-
-        // Navigate to home page and update URL parameter
         if (value.trim()) {
             navigate(`/home?search=${encodeURIComponent(value.trim())}`, { replace: true });
         } else {
-            // If query is empty, show all products
             navigate('/home', { replace: true });
         }
     };
 
-    // Clear search
     const handleClearSearch = () => {
         setSearchQuery("");
         navigate('/home', { replace: true });
     };
 
-
-
     const isActive = (path) => location.pathname === path;
 
-    //===========================
-    //Voice Search Implementation
-    //===========================
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef(null);
 
@@ -185,7 +165,6 @@ function Navbar() {
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             if (transcript) {
-                // Navigate to home page and update URL parameter
                 setSearchQuery(transcript);
                 navigate(`/home?search=${encodeURIComponent(transcript)}`, { replace: true });
                 toast.success(`Searched for: ${transcript}`);
@@ -202,21 +181,15 @@ function Navbar() {
             }
         };
 
-
         recognition.start();
     };
 
-    // ============================================
-    // RENDER
-    // ============================================
     return (
         <nav
             className="fixed top-0 left-0 right-0 z-50 py-3 transition-all duration-500 ease-out"
             role="navigation"
             aria-label="Main navigation"
         >
-            {/* Background Layers - Using separate divs to prevent flickering/blinking */}
-            {/* Background Layers - Persistent gradient color */}
             <div
                 className={`absolute inset-0 transition-all duration-500 ease-out bg-gradient-to-r from-[#fb923c] via-[#c084fc] to-[#a78bfa] ${scrolled ? "backdrop-blur-xl shadow-lg shadow-purple-900/20 bg-opacity-95" : ""
                     }`}
@@ -225,9 +198,6 @@ function Navbar() {
 
             <div className="relative w-full px-4 sm:px-6 lg:px-12">
                 <div className="flex items-center justify-between gap-4">
-                    {/* ============================================
-                        LOGO
-                        ============================================ */}
                     <Link
                         to="/home"
                         className="flex items-center gap-0 group flex-shrink-0"
@@ -244,8 +214,8 @@ function Navbar() {
                             <Link
                                 to="/home"
                                 className={`p-2.5 rounded-xl transition-all duration-300 ease-out group ${isActive("/home")
-                                    ? "bg-white/25 text-white shadow-[0_0_15px_rgba(255,255,255,0.3)] ring-1 ring-white/30"
-                                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                                        ? "bg-white/25 text-white shadow-[0_0_15px_rgba(255,255,255,0.3)] ring-1 ring-white/30"
+                                        : "text-white/80 hover:bg-white/10 hover:text-white"
                                     }`}
                                 aria-label="Home"
                             >
@@ -269,8 +239,8 @@ function Navbar() {
                                         onFocus={() => setSearchFocused(true)}
                                         onBlur={() => setSearchFocused(false)}
                                         className={`relative w-full pl-11 pr-24 py-2.5 rounded-xl text-sm transition-all duration-300 ease-out outline-none border font-medium ${searchFocused
-                                            ? "bg-white border-white text-gray-900 placeholder-gray-400 ring-4 ring-orange-500/20"
-                                            : "bg-white/20 border-white/20 text-white placeholder-white/70 hover:bg-white/30 hover:border-white/40"
+                                                ? "bg-white border-white text-gray-900 placeholder-gray-400 ring-4 ring-orange-500/20"
+                                                : "bg-white/20 border-white/20 text-white placeholder-white/70 hover:bg-white/30 hover:border-white/40"
                                             } backdrop-blur-md`}
                                         aria-label="Search products"
                                     />
@@ -294,8 +264,8 @@ function Navbar() {
                                             type="button"
                                             onClick={toggleListening}
                                             className={`p-1.5 rounded-lg transition-all duration-300 ${isListening
-                                                ? "text-red-500 bg-red-400/10 scale-110 shadow-sm"
-                                                : searchFocused ? "text-gray-400 hover:text-orange-500" : "text-white/80 hover:text-white hover:bg-white/10"
+                                                    ? "text-red-500 bg-red-400/10 scale-110 shadow-sm"
+                                                    : searchFocused ? "text-gray-400 hover:text-orange-500" : "text-white/80 hover:text-white hover:bg-white/10"
                                                 }`}
                                             aria-label="Voice search"
                                             title="Voice Search"
@@ -308,41 +278,12 @@ function Navbar() {
                         </div>
                     </div>
 
-                    {/* ============================================
-                        DESKTOP NAVIGATION
-                        ============================================ */}
-                    <div className="hidden lg:flex items-center gap-2">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.name}
-                                to={link.path}
-                                className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ease-out group overflow-hidden ${isActive(link.path)
-                                    ? "text-white"
-                                    : "text-orange-100 hover:text-white"
-                                    }`}
-                            >
-                                <span className={`absolute inset-0 bg-white/5 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left rounded-lg ${isActive(link.path) ? 'scale-x-100 bg-white/10' : ''}`} />
-                                <span className="relative z-10">{link.name}</span>
-                                <span
-                                    className={`absolute bottom-1.5 left-4 right-4 h-0.5 bg-gradient-to-r from-orange-400 to-yellow-400 rounded-full transition-all duration-300 ease-out ${isActive(link.path)
-                                        ? "opacity-100 scale-x-100 shadow-[0_0_8px_rgba(167,139,250,0.8)]"
-                                        : "opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100"
-                                        }`}
-                                />
-                            </Link>
-                        ))}
-                    </div>
-
-                    {/* ============================================
-                        RIGHT SIDE ACTIONS
-                        ============================================ */}
                     <div className="flex items-center gap-3 sm:gap-4">
-                        {/* Wishlist */}
                         <Link
                             to="/wishlist"
                             className={`relative p-2.5 rounded-xl transition-all duration-300 ease-out group hover:bg-white/10 ${isActive("/wishlist")
-                                ? "bg-white/10 text-rose-400"
-                                : "text-orange-100 hover:text-rose-400"
+                                    ? "bg-white/10 text-rose-400"
+                                    : "text-orange-100 hover:text-rose-400"
                                 }`}
                             aria-label={`Wishlist with ${wishlistCount} items`}
                         >
@@ -357,12 +298,11 @@ function Navbar() {
                             )}
                         </Link>
 
-                        {/* Cart */}
                         <Link
                             to="/cart"
                             className={`relative p-2.5 rounded-xl transition-all duration-300 ease-out group hover:bg-white/10 ${isActive("/cart")
-                                ? "bg-white/10 text-orange-300"
-                                : "text-orange-100 hover:text-orange-300"
+                                    ? "bg-white/10 text-orange-300"
+                                    : "text-orange-100 hover:text-orange-300"
                                 }`}
                             aria-label={`Shopping cart with ${cartCount} items`}
                         >
@@ -377,14 +317,13 @@ function Navbar() {
                             )}
                         </Link>
 
-                        {/* Profile / Login */}
                         {user ? (
                             <div className="relative" ref={dropdownRef}>
                                 <button
                                     onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                                     className={`flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-full transition-all duration-300 border border-transparent ${profileDropdownOpen
-                                        ? "bg-white/10 border-white/10 text-white"
-                                        : "hover:bg-white/5 text-orange-100 hover:text-white"
+                                            ? "bg-white/10 border-white/10 text-white"
+                                            : "hover:bg-white/5 text-orange-100 hover:text-white"
                                         }`}
                                 >
                                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-orange-400/30 border border-white/20">
@@ -402,7 +341,6 @@ function Navbar() {
                                     />
                                 </button>
 
-                                {/* Dropdown Menu */}
                                 {profileDropdownOpen && (
                                     <div className="absolute right-0 mt-3 w-60 bg-[#581c87]/95 backdrop-blur-xl rounded-2xl shadow-xl shadow-black/50 border border-white/10 py-2 animate-in slide-in-from-top-2 duration-200 overflow-hidden transform origin-top-right ring-1 ring-white/5">
                                         <div className="px-5 py-4 border-b border-white/10 mb-1 bg-white/5">
@@ -445,8 +383,8 @@ function Navbar() {
                             <Link
                                 to="/login"
                                 className={`relative px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ease-out ${isActive("/login")
-                                    ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-400/40"
-                                    : "bg-white/10 text-white hover:bg-white/20 border border-white/10"
+                                        ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-400/40"
+                                        : "bg-white/10 text-white hover:bg-white/20 border border-white/10"
                                     }`}
                                 aria-label="Login"
                             >
@@ -454,7 +392,6 @@ function Navbar() {
                             </Link>
                         )}
 
-                        {/* Mobile Menu Button */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
                             className="lg:hidden p-2.5 text-orange-100 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-300"
@@ -471,55 +408,39 @@ function Navbar() {
                         </button>
                     </div>
                 </div>
-            </div >
+            </div>
 
-            {/* Mobile Menu Overlay */}
-            {
-                isOpen && (
-                    <div className="fixed inset-0 z-40 lg:hidden">
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
-                        <div className="absolute top-[72px] left-0 right-0 bg-[#581c87]/95 backdrop-blur-xl border-t border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-300 p-4">
-                            <div className="flex flex-col gap-2">
-                                <Link
-                                    to="/home"
-                                    onClick={() => setIsOpen(false)}
-                                    className={`px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 ${isActive("/home")
+            {isOpen && (
+                <div className="fixed inset-0 z-40 lg:hidden">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+                    <div className="absolute top-[72px] left-0 right-0 bg-[#581c87]/95 backdrop-blur-xl border-t border-white/10 shadow-2xl animate-in slide-in-from-top-2 duration-300 p-4">
+                        <div className="flex flex-col gap-2">
+                            <Link
+                                to="/home"
+                                onClick={() => setIsOpen(false)}
+                                className={`px-4 py-3 rounded-xl font-medium transition-all flex items-center gap-3 ${isActive("/home")
                                         ? "bg-orange-400/30 text-white border border-orange-400/50"
                                         : "text-orange-100 hover:bg-white/5 hover:text-white"
-                                        }`}
+                                    }`}
+                            >
+                                <FaHome size={18} />
+                                Home
+                            </Link>
+                            <div className="h-px bg-white/10 my-2" />
+                            {!user && (
+                                <Link
+                                    to="/login"
+                                    onClick={() => setIsOpen(false)}
+                                    className="px-4 py-3 rounded-xl font-bold text-center bg-white/10 text-white hover:bg-white/20 transition-all border border-white/10"
                                 >
-                                    <FaHome size={18} />
-                                    Home
+                                    Login / Sign Up
                                 </Link>
-                                {navLinks.map((link) => (
-                                    <Link
-                                        key={link.name}
-                                        to={link.path}
-                                        onClick={() => setIsOpen(false)}
-                                        className={`px-4 py-3 rounded-xl font-medium transition-all ${isActive(link.path)
-                                            ? "bg-orange-400/30 text-white border border-orange-400/50"
-                                            : "text-orange-100 hover:bg-white/5 hover:text-white"
-                                            }`}
-                                    >
-                                        {link.name}
-                                    </Link>
-                                ))}
-                                <div className="h-px bg-white/10 my-2" />
-                                {!user && (
-                                    <Link
-                                        to="/login"
-                                        onClick={() => setIsOpen(false)}
-                                        className="px-4 py-3 rounded-xl font-bold text-center bg-white/10 text-white hover:bg-white/20 transition-all border border-white/10"
-                                    >
-                                        Login / Sign Up
-                                    </Link>
-                                )}
-                            </div>
+                            )}
                         </div>
                     </div>
-                )
-            }
-        </nav >
+                </div>
+            )}
+        </nav>
     );
 }
 

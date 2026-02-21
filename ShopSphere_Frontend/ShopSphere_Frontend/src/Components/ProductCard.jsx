@@ -59,7 +59,7 @@ export default function ProductCard({
                     className="absolute top-4 right-4 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-md z-10 hover:bg-white transition-all"
                 >
                     <FaHeart
-                        className={isInWishlist(item.name) ? "text-red-500" : "text-gray-400"}
+                        className={isInWishlist(item.id) ? "text-red-500" : "text-gray-400"}
                     />
                 </button>
             </div>
