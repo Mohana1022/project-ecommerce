@@ -14,6 +14,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from .models import VendorProfile, Product, ProductImage
 from django.db import transaction
+from finance.services import FinanceService
+from finance.models import LedgerEntry
+from user.models import OrderItem, Order
 
 User = get_user_model()
 
@@ -63,12 +66,18 @@ def register_view(request):
                 # Get or Create User
                 if request.user.is_authenticated:
                     user = request.user
+                    # Ensure role reflects vendor status if they are just a customer
+                    if user.role == 'customer':
+                        user.role = 'vendor'
+                        user.save()
                 else:
                     user = User.objects.create_user(
                         username=username,
                         email=email,
                         password=password
                     )
+                    user.role = 'vendor'
+                    user.save()
                     print(f"DEBUG: Created new user {user.email} for atomic vendor registration.")
 
                 # Check if they already have a vendor profile
@@ -177,6 +186,7 @@ def vendor_details_view(request):
             id_type=request.POST.get('id_type'),
             id_number=request.POST.get('id_number'),
             id_proof_file=request.FILES.get('id_proof_file'),
+            selfie_with_id_file=request.FILES.get('selfie_with_id_file'),
             approval_status='pending'  # Status defaults to pending
         )
         if 'vendor_user_id' in request.session:
@@ -250,9 +260,79 @@ def vendor_home_view(request):
 
     # If approved, show products dashboard
     products = vendor.products.all()
+    
+    # Financial Summary
+    summary = FinanceService.get_vendor_earnings_summary(vendor)
+    
+    # Recent Orders (Top 5)
+    order_items = OrderItem.objects.filter(vendor=vendor).select_related('order').order_by('-order__created_at')[:5]
+    
+    # Financial Ledgers (Top 10)
+    ledgers = LedgerEntry.objects.filter(vendor=vendor).select_related('order').order_by('-created_at')[:10]
+    
     return render(request, 'vendor_dashboard.html', {
         'vendor': vendor,
-        'products': products
+        'products': products,
+        'summary': summary,
+        'recent_orders': order_items,
+        'ledgers': ledgers
+    })
+
+@login_required(login_url='login')
+def vendor_orders_view(request):
+    """View all orders for this vendor"""
+    vendor = request.user.vendor_profile
+    order_items = OrderItem.objects.filter(vendor=vendor).select_related('order').order_by('-order__created_at')
+    return render(request, 'vendor_orders.html', {'vendor': vendor, 'order_items': order_items})
+
+@login_required(login_url='login')
+def vendor_invoice(request, order_number):
+    """View vendor-specific order copy"""
+    vendor = request.user.vendor_profile
+    order = get_object_or_404(Order, order_number=order_number)
+    
+    # Fallback for missing delivery address
+    if not order.delivery_address:
+        from user.models import Address
+        order.delivery_address = Address.objects.filter(user=order.user, is_default=True).first() or \
+                               Address.objects.filter(user=order.user).first()
+    
+    items = OrderItem.objects.filter(order=order, vendor=vendor)
+    
+    vendor_subtotal = sum(item.subtotal for item in items)
+    
+    return render(request, 'invoice_vendor_order.html', {
+        'vendor': vendor,
+        'order': order,
+        'items': items,
+        'vendor_subtotal': vendor_subtotal
+    })
+
+@login_required(login_url='login')
+def vendor_commission_invoice(request, order_number):
+    """View commission deduction details"""
+    vendor = request.user.vendor_profile
+    order = get_object_or_404(Order, order_number=order_number)
+    
+    # Fallback for missing delivery address
+    if not order.delivery_address:
+        from user.models import Address
+        order.delivery_address = Address.objects.filter(user=order.user, is_default=True).first() or \
+                               Address.objects.filter(user=order.user).first()
+    
+    items = OrderItem.objects.filter(order=order, vendor=vendor)
+    
+    vendor_subtotal = sum(item.subtotal for item in items)
+    total_commission = sum(item.commission_amount for item in items)
+    net_earnings = vendor_subtotal - total_commission
+    
+    return render(request, 'invoice_vendor_commission.html', {
+        'vendor': vendor,
+        'order': order,
+        'items': items,
+        'vendor_subtotal': vendor_subtotal,
+        'total_commission': total_commission,
+        'net_earnings': net_earnings
     })
 
 
@@ -445,3 +525,14 @@ def view_product_view(request, product_id):
     }
 
     return render(request, 'product_detail.html', context)
+
+@login_required(login_url='login')
+def vendor_ledgers_view(request):
+    """Full financial history for the vendor"""
+    vendor = request.user.vendor_profile
+    ledgers = LedgerEntry.objects.filter(vendor=vendor).select_related('order').order_by('-created_at')
+    
+    return render(request, 'vendor_ledgers.html', {
+        'vendor': vendor,
+        'ledgers': ledgers
+    })

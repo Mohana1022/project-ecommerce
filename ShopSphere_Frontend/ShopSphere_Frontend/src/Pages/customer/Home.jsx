@@ -12,8 +12,10 @@ import { fetchProducts, AddToCart, AddToWishlist, RemoveFromWishlist } from "../
 import toast from "react-hot-toast";
 import ProductCard from "../../Components/ProductCard";
 import TrendingProducts from "../../Components/TrendingProducts";
+import MostSearchedProducts from "../../Components/MostSearchedProducts";
 import DiscoverySection from "../../Components/DiscoverySection";
 import Newsletter from "../../Components/Newsletter";
+import { logSearch } from "../../api/axios";
 
 const CATEGORIES = [
   { id: "All", label: "All Products" },
@@ -101,6 +103,15 @@ const Home = () => {
   useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
+
+  // Debounced search logging – fires 800 ms after user stops typing
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) return;
+    const timer = setTimeout(() => {
+      logSearch(searchQuery.trim());
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -253,6 +264,14 @@ const Home = () => {
 
       {/* TRENDING PRODUCTS SECTION */}
       <TrendingProducts
+        navigate={navigate}
+        handleWishlistClick={handleWishlistClick}
+        handleAddToCartClick={handleAddToCartClick}
+        isInWishlist={isInWishlist}
+      />
+
+      {/* MOST SEARCHED PRODUCTS – ML Ranked */}
+      <MostSearchedProducts
         navigate={navigate}
         handleWishlistClick={handleWishlistClick}
         handleAddToCartClick={handleAddToCartClick}

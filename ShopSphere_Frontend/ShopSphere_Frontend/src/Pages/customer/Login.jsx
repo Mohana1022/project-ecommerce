@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { loginUser, googleLogin } from "../../api/axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import toast from 'react-hot-toast';
 import { useGoogleLogin } from "@react-oauth/google";
+
 function Login() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const redirectPath = searchParams.get('redirect') || "/";
+
     const [credentials, setCredentials] = useState({
         email: '',
         password: ''
@@ -34,9 +38,9 @@ function Login() {
             localStorage.setItem("user", JSON.stringify(data));
             toast.success("Login successful! Welcome back.");
 
-            navigate("/");
+            navigate(redirectPath);
         } catch (err) {
-            const errorMessage = err.response?.data?.message || "Login failed. Please check your credentials.";
+            const errorMessage = err.response?.data?.error || err.response?.data?.message || "Login failed. Please check your credentials.";
             setError(errorMessage);
             toast.error(errorMessage);
         } finally {
@@ -75,15 +79,16 @@ function Login() {
                 localStorage.setItem("user", JSON.stringify(backendData));
 
                 toast.success("Logged in with Google!");
-                navigate("/");
+                navigate(redirectPath);
 
             } catch (err) {
-                console.error("Google login error:", err);
-                toast.error("Google login failed internally");
+                console.error("Google backend login error:", err.response?.data || err);
+                toast.error(err.response?.data?.error || "Google login failed at backend");
             }
         },
-        onError: () => {
-            toast.error("Google login failed");
+        onError: (error) => {
+            console.error("Google OAuth error:", error);
+            toast.error("Google login failed - Check console or Redirect URI settings");
         },
     });
 

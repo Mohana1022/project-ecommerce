@@ -1336,7 +1336,7 @@ function Orders() {
                         </button>
 
                         <button
-                          onClick={() => navigate(`/track-order/${order.id}`)}
+                          onClick={() => navigate(`/track-order/${order.order_number}`)}
                           className="flex-1 md:flex-none px-8 py-3 bg-gradient-to-r from-orange-400 to-purple-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:from-orange-600 hover:to-purple-600 transition-all shadow-xl shadow-orange-200"
                         >
                           Track Order

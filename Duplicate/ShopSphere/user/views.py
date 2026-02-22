@@ -7,7 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 
-from .models import AuthUser, Cart, CartItem, Order, OrderItem, Address, Review, Payment
+from .models import AuthUser, Cart, CartItem, Order, OrderItem, Address, Review, Payment, UserWallet, WalletTransaction
 from .serializers import RegisterSerializer, ProductSerializer, CartSerializer, OrderSerializer, AddressSerializer, ReviewSerializer
 from .forms import AddressForm
 import uuid
@@ -19,8 +19,31 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, F, FloatField, ExpressionWrapper, Q
+from django.views.decorators.csrf import csrf_exempt
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_wallet_balance(request):
+    """Get current user's wallet balance and transactions"""
+    wallet, _ = UserWallet.objects.get_or_create(user=request.user)
+    transactions = WalletTransaction.objects.filter(wallet=wallet).order_by('-created_at')[:20]
+    
+    return Response({
+        'balance': float(wallet.balance),
+        'total_credited': float(wallet.total_credited),
+        'total_debited': float(wallet.total_debited),
+        'transactions': [{
+            'id': t.id,
+            'type': t.transaction_type,
+            'amount': float(t.amount),
+            'description': t.description,
+            'date': t.created_at.strftime('%Y-%m-%d %H:%M')
+        } for t in transactions]
+    })
+
+
+@csrf_exempt
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def register_api(request):
@@ -38,6 +61,7 @@ def register_api(request):
         return Response(serializer.errors, status=400)
     return render(request, "user_register.html", {"error": serializer.errors})
 
+@csrf_exempt
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def login_api(request):
@@ -58,7 +82,8 @@ def login_api(request):
         except AuthUser.DoesNotExist:
             auth_identifier = None
 
-    user = authenticate(username=auth_identifier, password=password)
+    # Try to authenticate. Since USERNAME_FIELD is 'email', we pass the identifier as 'username'
+    user = authenticate(request, username=auth_identifier, password=password)
 
     if user:
         # Basic active check
@@ -107,9 +132,21 @@ def login_api(request):
                 pass
 
         login(request, user)
+        
+        # Determine effective role for backward compatibility
+        effective_role = user.role
+        all_user_roles = user.all_roles
+        
+        # If user has a delivery/vendor profile, ensure that's reflected even if current role is 'customer'
+        if 'delivery' in all_user_roles and effective_role == 'customer':
+            effective_role = 'delivery'
+        elif 'vendor' in all_user_roles and effective_role == 'customer':
+            effective_role = 'vendor'
+
         refresh = RefreshToken.for_user(user)
         # Add custom claims
-        refresh['role'] = user.role
+        refresh['role'] = effective_role
+        refresh['all_roles'] = all_user_roles
         refresh['username'] = user.username
         refresh['is_staff'] = user.is_staff
         refresh['is_superuser'] = user.is_superuser
@@ -119,13 +156,15 @@ def login_api(request):
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
                 "username": user.username,
-                "role": user.role,
+                "role": effective_role,
+                "all_roles": all_user_roles,
                 "email": user.email
             })
         else:
             return redirect('user_products')
 
-    return Response({"error": "Invalid credentials"}, status=401)
+    return Response({"error": "Invalid email or password. Please try again."}, status=401)
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_login_api(request):
@@ -188,10 +227,10 @@ def google_login_api(request):
 #permission_classes([IsAuthenticated])
 
 def home_api(request):
-    products = Product.objects.filter(status='active', is_blocked=False)
+    products = Product.objects.filter(status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False)
     
     if request.accepted_renderer.format == 'json':
-        serializer = ProductSerializer(products, many=True)
+        serializer = ProductSerializer(products, many=True, context={'request': request})
         return Response(serializer.data)
     
     cart_count = 0
@@ -209,7 +248,7 @@ def home_api(request):
     })
 
 def get_product(request):
-    products = Product.objects.all()
+    products = Product.objects.filter(status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False)
     cart_count = 0
     if request.user.is_authenticated:
         try:
@@ -227,7 +266,7 @@ def get_product(request):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def add_to_cart(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
+    product = get_object_or_404(Product, id=product_id, status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False)
     cart, created = Cart.objects.get_or_create(user=request.user)
     
     cart_item, item_created = CartItem.objects.get_or_create(cart=cart, product=product)
@@ -329,6 +368,7 @@ def process_payment(request):
                     completed_at=timezone.now().replace(second=0, microsecond=0)
                 )
                 
+                from superAdmin.models import CommissionSetting
                 for item_data in items_from_request:
                     price = Decimal(str(item_data.get('price', 0)))
                     quantity = int(item_data.get('quantity', 1))
@@ -336,13 +376,36 @@ def process_payment(request):
                     # Try to find the product object to maintain the FK relation
                     product_obj = Product.objects.filter(name=item_data.get('name')).first()
                     
+                    # --- STOCK REDUCTION LOGIC ---
+                    if product_obj:
+                        if product_obj.quantity < quantity:
+                            raise Exception(f"Insufficient stock for {product_obj.name}. Available: {product_obj.quantity}")
+                        product_obj.quantity -= quantity
+                        product_obj.save(update_fields=['quantity'])
+                    # -----------------------------
+
+                    commission_rate = Decimal('10.00')
+                    commission_amount = Decimal('0.00')
+                    
+                    if product_obj:
+                        comm_data = CommissionSetting.get_commission_for_product(product_obj)
+                        commission_rate = Decimal(str(comm_data['rate']))
+                        basic_fee = Decimal(str(comm_data.get('basic_fee', 0)))
+                        if comm_data['type'] == 'percentage':
+                            commission_amount = ((price * quantity * commission_rate) / 100) + basic_fee
+                        else:
+                            commission_amount = commission_rate + basic_fee # Fixed amount + basic fee
+                    
                     OrderItem.objects.create(
                         order=order,
                         product=product_obj,
+                        vendor=product_obj.vendor if product_obj else None,
                         product_name=item_data.get('name'),
                         quantity=quantity,
                         product_price=price,
-                        subtotal=price * quantity
+                        subtotal=price * quantity,
+                        commission_rate=commission_rate,
+                        commission_amount=commission_amount
                     )
                 Cart.objects.filter(user=request.user).delete()
 
@@ -355,6 +418,11 @@ def process_payment(request):
 
                 total_amount = sum(item.get_total() for item in cart_items)
                 
+                # Pre-check stock for all items
+                for item in cart_items:
+                    if item.product.quantity < item.quantity:
+                        return Response({"error": f"Insufficient stock for {item.product.name}. Available: {item.product.quantity}"}, status=400)
+
                 order = Order.objects.create(
                     user=request.user,
                     order_number=order_number,
@@ -376,14 +444,32 @@ def process_payment(request):
                     completed_at=timezone.now().replace(second=0, microsecond=0)
                 )
 
+                from superAdmin.models import CommissionSetting
                 for item in cart_items:
+                    # --- STOCK REDUCTION LOGIC ---
+                    product_obj = item.product
+                    product_obj.quantity -= item.quantity
+                    product_obj.save(update_fields=['quantity'])
+                    # -----------------------------
+
+                    comm_data = CommissionSetting.get_commission_for_product(item.product)
+                    commission_rate = Decimal(str(comm_data['rate']))
+                    basic_fee = Decimal(str(comm_data.get('basic_fee', 0)))
+                    if comm_data['type'] == 'percentage':
+                        commission_amount = (item.get_total() * commission_rate) / 100 + basic_fee
+                    else:
+                        commission_amount = commission_rate + basic_fee
+                        
                     OrderItem.objects.create(
                         order=order,
                         product=item.product,
+                        vendor=item.product.vendor,
                         product_name=item.product.name,
                         quantity=item.quantity,
                         product_price=item.product.price,
-                        subtotal=item.get_total()
+                        subtotal=item.get_total(),
+                        commission_rate=commission_rate,
+                        commission_amount=commission_amount
                     )
                 cart.items.all().delete()
 
@@ -507,7 +593,7 @@ def logout_api(request):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def product_detail(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
+    product = get_object_or_404(Product, id=product_id, status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False)
     user_review = None
     can_edit_review = False
     days_left = 0
@@ -523,12 +609,12 @@ def product_detail(request, product_id):
     reviews = Review.objects.filter(Product=product).order_by('-created_at')
     
     if request.accepted_renderer.format == 'json':
-        product_data = ProductSerializer(product).data
-        reviews_data = ReviewSerializer(reviews, many=True).data
+        product_data = ProductSerializer(product, context={'request': request}).data
+        reviews_data = ReviewSerializer(reviews, many=True, context={'request': request}).data
         return Response({
             "product": product_data,
             "reviews": reviews_data,
-            "user_review": ReviewSerializer(user_review).data if user_review else None,
+            "user_review": ReviewSerializer(user_review, context={'request': request}).data if user_review else None,
             "can_edit_review": can_edit_review,
             "days_left": days_left
         })
@@ -600,16 +686,23 @@ def auth_page(request):
             token = str(uuid.uuid4())
             reset_tokens[token] = user.id
 
-            # Dynamically determine the frontend URL from the request
-            frontend_origin = request.headers.get('Origin') or request.headers.get('Referer', '').rstrip('/')
-            if not frontend_origin or frontend_origin.startswith('http://localhost:8000'):
-                frontend_origin = 'http://localhost:5173'  # fallback
-            # Strip any trailing path from Referer (e.g. http://localhost:5173/forgotpassword -> http://localhost:5173)
-            from urllib.parse import urlparse
-            parsed = urlparse(frontend_origin)
-            frontend_origin = f"{parsed.scheme}://{parsed.netloc}"
+            # Dynamically determine the frontend URL
+            # 1. Try Origin header (sent by browsers)
+            # 2. Try Referer header (sent by browsers)
+            # 3. Fallback to extracting host from current request if mobile/other
+            frontend_origin = request.headers.get('Origin') or request.headers.get('Referer', '')
+            
+            if frontend_origin:
+                from urllib.parse import urlparse
+                parsed = urlparse(frontend_origin)
+                frontend_origin = f"{parsed.scheme}://{parsed.netloc}"
+            else:
+                # Absolute fallback: if we can't detect, assume it's the same host as backend but on frontend port
+                # This helps on mobile where headers might be stripped
+                host = request.get_host().split(':')[0] # Get IP or domain without port
+                frontend_origin = f"http://{host}:5173"
 
-            link = f"{frontend_origin}/reset-password?token={token}"
+            link = f"{frontend_origin.rstrip('/')}/reset-password?token={token}"
 
             send_mail(
                 "Password Reset Request",
@@ -630,15 +723,18 @@ def auth_page(request):
             p1 = request.data.get("password1") or request.POST.get("password1")
             p2 = request.data.get("password2") or request.POST.get("password2")
 
-            if p1 == p2:
+            if p1 == p2 and p1 is not None:
                 user = AuthUser.objects.get(id=reset_tokens[token])
-                user.set_password(p1)
+                # Strip whitespace to avoid accidental login failures
+                user.set_password(p1.strip())
                 user.save()
                 del reset_tokens[token]
 
                 return Response({"message": "Password changed successfully ✅"}, status=200)
 
             return Response({"message": "Passwords do not match ❌"}, status=400)
+        
+        return Response({"message": "Invalid or expired reset token ❌"}, status=400)
 
     return render(request, "auth.html", {"page": page})
 
@@ -671,11 +767,14 @@ def trending_products(request):
     except Exception:
         products = Product.objects.none()
 
+    # Apply Vendor Status Filtering
+    products = products.filter(status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False)
+
     # ✅ Fallback: if no trending products found, return top-rated or newest products
     if not products.exists():
         # Try products that have reviews
         products = Product.objects.filter(
-            status='active', is_blocked=False
+            status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False
         ).annotate(
             review_count=Count('reviews')
         ).filter(
@@ -685,8 +784,123 @@ def trending_products(request):
     # Final fallback: just return newest active products
     if not products.exists():
         products = Product.objects.filter(
-            status='active', is_blocked=False
+            status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False
         ).order_by('-created_at')[:10]
 
-    serializer = ProductSerializer(products, many=True)
+    serializer = ProductSerializer(products, many=True, context={'request': request})
     return Response(serializer.data)
+
+
+# ======================================
+# 🔍 Most Searched Products (ML-Based)
+# ======================================
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def log_search(request):
+    """
+    Records a user search query into SearchLog.
+    Called silently from the frontend on every search keystroke (debounced).
+    """
+    from user.models import SearchLog
+    query = (request.data.get('query') or '').strip()
+    if len(query) < 2:
+        return Response({'status': 'ignored'})
+
+    user = request.user if request.user.is_authenticated else None
+    session_key = request.session.session_key or ''
+
+    SearchLog.objects.create(
+        query=query.lower(),
+        user=user,
+        session_key=session_key
+    )
+    return Response({'status': 'logged'})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def most_searched_products(request):
+    """
+    ML-based endpoint: returns products ranked by how often they were searched.
+
+    Algorithm (lightweight TF-IDF-style matching):
+    1. Aggregate the most frequently searched queries (last 30 days).
+    2. Tokenize each query into words.
+    3. For every active product, compute a relevance score:
+           score = sum over all query-tokens that appear in product name
+                   of (token_count / max_count)
+       This gives a frequency-weighted name-match ranking.
+    4. Return the top-10 products sorted by score descending.
+    """
+    import re
+    from collections import defaultdict
+    from user.models import SearchLog
+
+    def _safe_fallback(request):
+        """Return newest active products as a safe cold-start fallback."""
+        products = Product.objects.filter(
+            status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False
+        ).annotate(
+            review_count=Count('reviews')
+        ).order_by('-review_count', '-created_at')[:10]
+        return ProductSerializer(products, many=True, context={'request': request}).data
+
+    try:
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+
+        # Step 1: Fetch aggregated query frequencies from last 30 days
+        recent_logs = list(
+            SearchLog.objects
+            .filter(created_at__gte=thirty_days_ago)
+            .values('query')
+            .annotate(count=Count('query'))
+            .order_by('-count')[:200]
+        )
+
+        if not recent_logs:
+            # Cold-start: no search logs yet, return newest/most-reviewed products
+            return Response(_safe_fallback(request))
+
+        max_count = recent_logs[0]['count'] or 1
+
+        # Step 2: Build token → weight mapping (TF-IDF-like)
+        token_weights = defaultdict(float)
+        stop_words = {'the', 'a', 'an', 'is', 'in', 'on', 'at', 'for',
+                      'of', 'and', 'or', 'to', 'with', 'by'}
+        for row in recent_logs:
+            tokens = re.findall(r'\w+', row['query'].lower())
+            weight = row['count'] / max_count  # normalise to [0, 1]
+            for token in tokens:
+                if token not in stop_words and len(token) >= 2:
+                    token_weights[token] += weight
+
+        # Step 3: Score every active product (no non-existent field access)
+        products_qs = list(Product.objects.filter(status='active', is_blocked=False, vendor__is_active=True, vendor__is_blocked=False))
+        scored = []
+        for product in products_qs:
+            name_tokens = set(re.findall(r'\w+', product.name.lower()))
+            score = sum(token_weights.get(t, 0) for t in name_tokens)
+            # Safe attribute access — some products might have the field set by signals
+            rating = float(getattr(product, 'average_rating', 0) or 0)
+            score += rating * 0.05
+            if score > 0:
+                scored.append((score, product))
+
+        # Step 4: Sort and take top-10
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top_products = [p for _, p in scored[:10]]
+
+        # Final fallback if nothing matched
+        if not top_products:
+            return Response(_safe_fallback(request))
+
+        serializer = ProductSerializer(top_products, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    except Exception as exc:
+        # Never let the ML endpoint crash — always return something useful
+        import logging
+        logging.getLogger(__name__).error("most_searched_products error: %s", exc)
+        return Response(_safe_fallback(request))
+

@@ -15,126 +15,141 @@ import SplashScreen from './admin/SplashScreen';
 import DeliveryRequests from './admin/DeliveryRequests';
 import DeliveryList from './admin/DeliveryList';
 import DeliveryReview from './admin/DeliveryReview';
-import { NotificationProvider } from './context/NotificationContext';
+import OrderManagement from './admin/OrderManagement';
+import OrderDetail from './admin/OrderDetails';
 import { UserProvider } from './context/UserContext';
 import { ProductProvider } from './context/ProductContext';
 
 
 function App() {
   return (
-    <NotificationProvider>
-      <UserProvider>
-        <ProductProvider>
-          <Router>
-            <Routes>
-              {/* Splash Screen as default route */}
-              <Route path="/" element={<SplashScreen />} />
+    <UserProvider>
+      <ProductProvider>
+        <Router>
+          <Routes>
+            {/* Splash Screen as default route */}
+            <Route path="/" element={<SplashScreen />} />
 
-              {/* Login Routes */}
-              <Route path="/login" element={<AdminLogin />} />
+            {/* Login Routes */}
+            <Route path="/login" element={<AdminLogin />} />
 
-              {/* Protected Admin Routes */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedAdminRoute>
-                    <AdminDashboard />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/users"
-                element={
-                  <ProtectedAdminRoute>
-                    <UserManagement />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/vendors"
-                element={
-                  <ProtectedAdminRoute>
-                    <VendorApproval />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/vendors/requests"
-                element={
-                  <ProtectedAdminRoute>
-                    <VendorRequests />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/vendor/:id"
-                element={
-                  <ProtectedAdminRoute>
-                    <VendorReview />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/vendors/review/:id"
-                element={
-                  <ProtectedAdminRoute>
-                    <VendorReview />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/delivery/requests"
-                element={
-                  <ProtectedAdminRoute>
-                    <DeliveryRequests />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/delivery/agents"
-                element={
-                  <ProtectedAdminRoute>
-                    <DeliveryList />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/delivery/review/:id"
-                element={
-                  <ProtectedAdminRoute>
-                    <DeliveryReview />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/products"
-                element={
-                  <ProtectedAdminRoute>
-                    <ProductManagement />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/reports"
-                element={
-                  <ProtectedAdminRoute>
-                    <Reports />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/settings/commission"
-                element={
-                  <ProtectedAdminRoute>
-                    <CommissionSettings />
-                  </ProtectedAdminRoute>
-                }
-              />
-            </Routes>
-          </Router>
-        </ProductProvider>
-      </UserProvider>
-    </NotificationProvider>
+            {/* Protected Admin Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminDashboard />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <ProtectedAdminRoute>
+                  <UserManagement />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/vendors"
+              element={
+                <ProtectedAdminRoute>
+                  <VendorApproval />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/vendors/requests"
+              element={
+                <ProtectedAdminRoute>
+                  <VendorRequests />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/vendor/:id"
+              element={
+                <ProtectedAdminRoute>
+                  <VendorReview />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/vendors/review/:id"
+              element={
+                <ProtectedAdminRoute>
+                  <VendorReview />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/delivery/requests"
+              element={
+                <ProtectedAdminRoute>
+                  <DeliveryRequests />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/delivery/agents"
+              element={
+                <ProtectedAdminRoute>
+                  <DeliveryList />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/delivery/review/:id"
+              element={
+                <ProtectedAdminRoute>
+                  <DeliveryReview />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/products"
+              element={
+                <ProtectedAdminRoute>
+                  <ProductManagement />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedAdminRoute>
+                  <Reports />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/settings/commission"
+              element={
+                <ProtectedAdminRoute>
+                  <CommissionSettings />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <ProtectedAdminRoute>
+                  <OrderManagement />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route
+              path="/orders/:id"
+              element={
+                <ProtectedAdminRoute>
+                  <OrderDetail />
+                </ProtectedAdminRoute>
+              }
+            />
+          </Routes>
+        </Router>
+      </ProductProvider>
+    </UserProvider>
   );
 }
 

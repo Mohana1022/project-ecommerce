@@ -5,13 +5,16 @@ import store from './Store.js'
 import "./index.css";
 import App from './App.jsx'
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { VendorRegistrationProvider } from './context/VendorRegistrationContext.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
-      <GoogleOAuthProvider clientId="110938740-5btvhn5022u2l6pi7l9obt4gfudduo1i.apps.googleusercontent.com">
-        <App />
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ""}>
+        <VendorRegistrationProvider>
+          <App />
+        </VendorRegistrationProvider>
       </GoogleOAuthProvider>
     </Provider>
   </StrictMode>,
-)
+);

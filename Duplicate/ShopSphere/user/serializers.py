@@ -17,9 +17,18 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductImage
         fields = ['id', 'image', 'uploaded_at']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        path = f"/api/vendor/product-images/{obj.id}/"
+        if request:
+            return request.build_absolute_uri(path)
+        return path
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -65,7 +74,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'order', 'product', 'vendor', 'product_name', 'product_price', 'quantity', 'subtotal', 'vendor_status', 'user_review']
+        fields = ['id', 'order', 'product', 'vendor', 'product_name', 'product_price', 'quantity', 'subtotal', 'vendor_status', 'user_review', 'is_settled', 'settled_at']
 
     def get_product(self, obj):
         if obj.product_id:
@@ -104,7 +113,7 @@ class OrderSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Order
-        fields = ['id', 'user', 'payment_method', 'payment_status', 'total_amount', 
+        fields = ['id', 'user', 'order_number', 'transaction_id', 'payment_method', 'payment_status', 'total_amount', 
                   'status', 'delivery_address', 'created_at', 'items']
 
 

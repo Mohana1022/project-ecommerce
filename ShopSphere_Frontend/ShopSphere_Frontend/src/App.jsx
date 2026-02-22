@@ -6,7 +6,21 @@ import { Toaster } from "react-hot-toast";
 
 function Layout() {
   const location = useLocation();
-  const hideNavbarFooter = ["/", "/delivery", "/login", "/signup", "/delivery/dashboard", "/delivery/assigned", "/delivery/earnings", "/account-verification", "/verify-otp", "/verifyGST", "/verifyPAN", "/store-name", "/shipping-address", "/shipping-method", "/shipping-fee-preferences", "/bank-details"].includes(location.pathname);
+  // Hide the customer Navbar/Footer on delivery, vendor, and auth pages.
+  // Using startsWith so that any /delivery/* or /vendor* sub-route is
+  // automatically covered — no need to manually add new paths to a list.
+  const isDeliveryRoute = location.pathname.startsWith("/delivery");
+  const isVendorRoute = location.pathname.toLowerCase().includes("vendor") || location.pathname.startsWith("/welcome");
+  const isAuthRoute = [
+    "/", "/login", "/signup",
+    "/account-verification", "/verify-otp",
+    "/verifyGST", "/verifyPAN",
+    "/store-name", "/shipping-address",
+    "/shipping-method", "/shipping-fee-preferences", "/bank-details",
+  ].includes(location.pathname);
+
+  const hideNavbarFooter = isDeliveryRoute || isVendorRoute || isAuthRoute;
+
 
   return (
     <div className="flex flex-col min-h-screen">

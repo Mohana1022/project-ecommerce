@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import emailjs from "@emailjs/browser";
+import { getVendorStatus } from "../../api/vendor_axios";
+import toast from 'react-hot-toast';
 
 import StepProgress from "../../Components/StepProgress";
 
@@ -9,6 +11,25 @@ export default function VerifyAccount() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkExistingVendor = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        const response = await getVendorStatus();
+        if (response && (response.approval_status || response.status)) {
+          // If they already have a profile (pending or approved), redirect to seller hub
+          navigate("/seller");
+        }
+      } catch (err) {
+        // If 404, they are not a vendor yet, which is fine
+        console.log("No existing vendor profile found, proceeding with registration.");
+      }
+    };
+    checkExistingVendor();
+  }, [navigate]);
 
   const sendOtp = async () => {
     if (!email.trim()) {

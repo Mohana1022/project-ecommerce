@@ -1,38 +1,27 @@
-import axios from "axios";
-
-const API_BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-
-
+import apiClient from "./apiClient";
 
 // vendor register
 export const vendorRegister = async (signupData) => {
-    const token = localStorage.getItem("accessToken");
-    const headers = {};
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+    let payload = signupData;
+    let headers = {};
+
+    if (!(signupData instanceof FormData)) {
+        payload = new FormData();
+        Object.keys(signupData).forEach(key => {
+            if (signupData[key] !== null && signupData[key] !== undefined) {
+                payload.append(key, signupData[key]);
+            }
+        });
+        headers["Content-Type"] = "multipart/form-data";
     }
-    console.log(signupData);
-    const response = await axios.post(
-        `${API_BASE_URL}/vendor/register/`,
-        signupData,
-        { headers }
-    );
+
+    const response = await apiClient.post("/api/vendor/register/", payload, { headers });
     return response.data;
 };
 
 // Get vendor approval status
 export const getVendorStatus = async () => {
-    const token = localStorage.getItem("accessToken");
-    const headers = {};
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const response = await axios.get(
-        `${API_BASE_URL}/api/vendor/approval-status/`,
-        { headers }
-    );
+    const response = await apiClient.get("/api/vendor/approval-status/");
     return response.data;
 };
 
@@ -40,18 +29,11 @@ export const getVendorStatus = async () => {
 export const logout = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
 };
 
 
 export const add_Product = async (productData) => {
-    const token = localStorage.getItem("accessToken");
-    const headers = {
-        "Content-Type": "multipart/form-data",
-    };
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
     const formData = new FormData();
     Object.keys(productData).forEach((key) => {
         if (key === "images") {
@@ -66,10 +48,14 @@ export const add_Product = async (productData) => {
         }
     });
 
-    const response = await axios.post(
-        `${API_BASE_URL}/api/vendor/products/`,
+    const response = await apiClient.post(
+        "/api/vendor/products/",
         formData,
-        { headers }
+        {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        }
     );
 
     return response.data;
@@ -77,43 +63,18 @@ export const add_Product = async (productData) => {
 
 // Get vendor products
 export const getVendorProducts = async () => {
-    const token = localStorage.getItem("accessToken");
-    const headers = {};
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const response = await axios.get(
-        `${API_BASE_URL}/api/vendor/products/`,
-        { headers }
-    );
+    const response = await apiClient.get("/api/vendor/products/");
     return response.data;
 };
 
 // Delete vendor product
 export const deleteVendorProduct = async (productId) => {
-    const token = localStorage.getItem("accessToken");
-    const headers = {};
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const response = await axios.delete(
-        `${API_BASE_URL}/api/vendor/products/${productId}/`,
-        { headers }
-    );
+    const response = await apiClient.delete(`/api/vendor/products/${productId}/`);
     return response.data;
 };
+
 // Update vendor product
 export const updateVendorProduct = async (productId, productData) => {
-    const token = localStorage.getItem("accessToken");
-    const headers = {
-        "Content-Type": "multipart/form-data",
-    };
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
     const formData = new FormData();
     Object.keys(productData).forEach((key) => {
         if (key === "images") {
@@ -132,10 +93,88 @@ export const updateVendorProduct = async (productId, productData) => {
         }
     });
 
-    const response = await axios.put(
-        `${API_BASE_URL}/api/vendor/products/${productId}/`,
+    const response = await apiClient.put(
+        `/api/vendor/products/${productId}/`,
         formData,
-        { headers }
+        {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        }
     );
+    return response.data;
+};
+
+// Get Vendor Orders
+export const getVendorOrders = async () => {
+    const response = await apiClient.get("/api/vendor/orders/");
+    return response.data;
+};
+
+// Update Vendor Order Item Status
+export const updateVendorOrderItemStatus = async (orderItemId, status) => {
+    const response = await apiClient.patch(`/api/vendor/orders/${orderItemId}/update-status/`, {
+        vendor_status: status
+    });
+    return response.data;
+};
+
+// Get Vendor Profile
+export const getVendorProfile = async () => {
+    const response = await apiClient.get("/api/vendor/profile/");
+    return response.data;
+};
+
+// Get Vendor Earnings Summary
+export const getVendorEarningsSummary = async () => {
+    const response = await apiClient.get("/api/vendor/earnings-summary/");
+    return response.data;
+};
+
+// Get Vendor Earnings Analytics (Chart Data)
+export const getVendorEarningsAnalytics = async (filter = 'weekly') => {
+    const response = await apiClient.get(`/api/vendor/earnings-analytics/?filter=${filter}`);
+    return response.data;
+};
+
+// Update Vendor Profile
+export const updateVendorProfile = async (profileData) => {
+    const response = await apiClient.patch("/api/vendor/profile/", profileData);
+    return response.data;
+};
+
+// Fetch Commission Info (Global rate and overrides)
+export const fetchCommissionInfo = async () => {
+    const response = await apiClient.get("/api/vendor/commission-info/");
+    return response.data;
+};
+
+// ── New Order Lifecycle Management ──────────────────────────────────────────
+
+// Get all vendor orders with full lifecycle status
+export const getVendorLifecycleOrders = async (statusFilter = '') => {
+    const url = statusFilter
+        ? `/api/vendor/lifecycle-orders/?status=${statusFilter}`
+        : '/api/vendor/lifecycle-orders/';
+    const response = await apiClient.get(url);
+    return response.data;
+};
+
+// Perform lifecycle action: approve | reject | pack
+export const vendorOrderAction = async (orderPk, action, notes = '') => {
+    const response = await apiClient.post(
+        `/api/vendor/lifecycle-orders/${orderPk}/action/`,
+        { action, notes }
+    );
+    return response.data;
+};
+
+export const getWalletBalance = async () => {
+    const response = await apiClient.get("/wallet-balance/");
+    return response.data;
+};
+
+export const vendorWithdraw = async (amount) => {
+    const response = await apiClient.post("/api/vendor/withdraw/", { amount });
     return response.data;
 };

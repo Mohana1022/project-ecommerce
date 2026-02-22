@@ -189,6 +189,7 @@ function Checkout() {
             "orderSuccess",
 
             JSON.stringify({
+              order_number: backendResponse.order_number,
 
               transactionId: response.razorpay_payment_id,
 

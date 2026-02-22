@@ -22,15 +22,15 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
-import NotificationBell from '../components/NotificationBell';
 import { fetchAllVendors, blockVendor, unblockVendor, approveVendorRequest } from '../api/axios';
 
 const VendorApproval = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [vendors, setVendors] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('All Vendors');
+    const [filterStatus, setFilterStatus] = useState(location.state?.filter || 'All Vendors');
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
@@ -64,6 +64,8 @@ const VendorApproval = () => {
                 matchesFilter = v.approval_status === 'pending';
             } else if (filterStatus === 'Blocked') {
                 matchesFilter = v.is_blocked === true;
+            } else if (filterStatus === 'Inactive') {
+                matchesFilter = v.is_active === false;
             } else {
                 matchesFilter = true; // All Vendors
             }
@@ -128,7 +130,6 @@ const VendorApproval = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <NotificationBell />
                         <div className="w-10 h-10 bg-violet-900 rounded-full flex items-center justify-center text-white font-bold">A</div>
                     </div>
                 </header>
@@ -155,6 +156,7 @@ const VendorApproval = () => {
                             <option>Approved</option>
                             <option>Pending</option>
                             <option>Blocked</option>
+                            <option>Inactive</option>
                         </select>
                         <button className="px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/20 hover:scale-105 transition-all">
                             Filter
@@ -167,7 +169,7 @@ const VendorApproval = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-[#FBFCFD] border-b border-slate-100">
                                     <tr>
-                                        {['SHOP NAME', 'OWNER', 'STATUS', 'APPLIED ON', 'ACTIONS'].map(h => (
+                                        {['SHOP NAME', 'OWNER', 'STATUS', 'SELLING STATUS', 'APPLIED ON', 'ACTIONS'].map(h => (
                                             <th key={h} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
                                         ))}
                                     </tr>
@@ -176,7 +178,7 @@ const VendorApproval = () => {
                                     {isLoading ? (
                                         Array(5).fill(0).map((_, i) => (
                                             <tr key={i} className="animate-pulse">
-                                                <td colSpan="5" className="px-8 py-8"><div className="h-10 bg-slate-100 rounded-2xl w-full" /></td>
+                                                <td colSpan="6" className="px-8 py-8"><div className="h-10 bg-slate-100 rounded-2xl w-full" /></td>
                                             </tr>
                                         ))
                                     ) : filteredVendors.length > 0 ? (
@@ -187,6 +189,14 @@ const VendorApproval = () => {
                                                 <td className="px-8 py-6">
                                                     <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${getStatusColor(vendor)}`}>
                                                         {getVendorStatus(vendor)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${vendor.is_active
+                                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                        : 'bg-orange-50 text-orange-600 border-orange-100'
+                                                        }`}>
+                                                        {vendor.is_active ? '● Active' : '○ Inactive'}
                                                     </span>
                                                 </td>
                                                 <td className="px-8 py-6 text-sm font-medium text-slate-400">{new Date(vendor.created_at).toLocaleDateString()}</td>

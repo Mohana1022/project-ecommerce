@@ -62,3 +62,70 @@ class DeliveryAgentApprovalLog(models.Model):
 
     def __str__(self):
         return f"{self.agent.user.email} - {self.action} by {self.admin_user.username if self.admin_user else 'System'}"
+
+
+class CommissionSetting(models.Model):
+    """
+    Model to store commission percentages.
+    Can be global (category=None) or specific to a category.
+    """
+    COMMISSION_TYPES = [
+        ('percentage', 'Percentage'),
+        ('fixed', 'Fixed'),
+    ]
+
+    CATEGORY_CHOICES = [
+        ('electronics', 'Electronics'),
+        ('fashion', 'Fashion'),
+        ('home_kitchen', 'Home & Kitchen'),
+        ('beauty_personal_care', 'Beauty & Personal Care'),
+        ('sports_fitness', 'Sports & Fitness'),
+        ('toys_games', 'Toys & Games'),
+        ('automotive', 'Automotive'),
+        ('grocery', 'Grocery'),
+        ('books', 'Books'),
+        ('services', 'Services'),
+        ('other', 'Other'),
+    ]
+
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, unique=True, null=True, blank=True)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=10.0)
+    basic_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    commission_type = models.CharField(max_length=20, choices=COMMISSION_TYPES, default='percentage')
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        if self.category:
+            return f"{self.get_category_display()} - {self.percentage}%"
+        return f"Global - {self.percentage}%"
+
+    class Meta:
+        ordering = ['category']
+
+    @staticmethod
+    def get_commission_for_product(product):
+        """
+        Determine the commission rate for a specific product.
+        Priority: Category-specific override > Global setting.
+        """
+        # 1. Check for category-specific override
+        setting = CommissionSetting.objects.filter(category=product.category, is_active=True).first()
+        
+        # 2. Fallback to global setting if no override found
+        if not setting:
+            setting = CommissionSetting.objects.filter(category=None, is_active=True).first()
+            
+        if setting:
+            return {
+                'rate': setting.percentage,
+                'type': setting.commission_type,
+                'basic_fee': setting.basic_fee
+            }
+            
+        # 3. Final default (10%) if no rows exist at all
+        return {
+            'rate': 10.00,
+            'type': 'percentage',
+            'basic_fee': 0.00
+        }

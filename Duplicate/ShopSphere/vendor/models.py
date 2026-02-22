@@ -31,16 +31,34 @@ class VendorProfile(models.Model):
     address = models.TextField() 
     business_type = models.CharField(max_length=20, choices=BUSINESS_CHOICES)
     
+    # Independent Contact Information
+    contact_name = models.CharField(max_length=100, blank=True, null=True)
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=15, blank=True, null=True)
+    
     # Legacy fields
     id_type = models.CharField(max_length=10, choices=ID_PROOF_CHOICES, blank=True, null=True)
     id_number = models.CharField(max_length=50, blank=True, null=True)
-    id_proof_file = models.FileField(upload_to='vendor_docs/', blank=True, null=True)
+    
+    # ID Proof (Binary Storage)
+    id_proof_data = models.BinaryField(null=True, blank=True)
+    id_proof_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    id_proof_filename = models.CharField(max_length=255, null=True, blank=True)
     
     # GST / PAN fields
     gst_number = models.CharField(max_length=15, blank=True, null=True)
     pan_number = models.CharField(max_length=10, blank=True, null=True)
     pan_name = models.CharField(max_length=100, blank=True, null=True)
-    pan_card_file = models.FileField(upload_to='pan_cards/', blank=True, null=True)
+    
+    # PAN Card (Binary Storage)
+    pan_card_data = models.BinaryField(null=True, blank=True)
+    pan_card_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    pan_card_filename = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Selfie with ID (Binary Storage)
+    selfie_with_id_data = models.BinaryField(null=True, blank=True)
+    selfie_with_id_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    selfie_with_id_filename = models.CharField(max_length=255, null=True, blank=True)
     
     approval_status = models.CharField(max_length=20, choices=APPROVAL_STATUS_CHOICES, default='pending')
     rejection_reason = models.TextField(blank=True, null=True)
@@ -48,6 +66,7 @@ class VendorProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_blocked = models.BooleanField(default=False)
     blocked_reason = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
     
     # Bank Details
     bank_holder_name = models.CharField(max_length=100, blank=True, null=True)
@@ -124,7 +143,9 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='products/')
+    image_data = models.BinaryField(null=True, blank=True)
+    image_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    image_filename = models.CharField(max_length=255, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

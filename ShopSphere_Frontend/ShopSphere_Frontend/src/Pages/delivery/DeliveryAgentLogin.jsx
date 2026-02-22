@@ -66,16 +66,17 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
         setIsLoading(true);
         try {
             const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-            const response = await axios.post(`${API_BASE_URL}/user_login`, {
+            const response = await axios.post(`${API_BASE_URL}/user_login/`, {
                 email: loginForm.email,
                 password: loginForm.password
             });
 
             const data = response.data;
 
-            // Check if user is a delivery agent
-            if (data.role !== 'delivery') {
-                toast.error("Account is not a delivery agent.");
+            // Check if user is a delivery agent (supporting multi-role accounts)
+            const isDelivery = data.role === 'delivery' || (data.all_roles && data.all_roles.includes('delivery'));
+            if (!isDelivery) {
+                toast.error("Account is not associated with a delivery partner.");
                 setIsLoading(false);
                 return;
             }
@@ -95,7 +96,19 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
             }
         } catch (error) {
             console.error('Login error:', error);
-            toast.error(error.response?.data?.error || "Invalid email or password");
+            const status = error.response?.data?.status;
+            const errorMessage = error.response?.data?.error || "Invalid email or password";
+
+            if (status === 'pending_approval' || status === 'rejected' || status === 'blocked') {
+                // We can use a more prominent alert or just stick with toast for now, 
+                // but at least we are sure the user gets the backend reason.
+                toast.error(errorMessage, {
+                    duration: 6000,
+                    icon: status === 'pending_approval' ? '⏳' : '🚫'
+                });
+            } else {
+                toast.error(errorMessage);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -143,7 +156,13 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
 
                 // Service Info
                 service_cities: signupForm.serviceCities ? signupForm.serviceCities.split(',').map(c => c.trim()) : [],
-                preferred_delivery_radius: parseInt(signupForm.preferredRadius) || 5
+                preferred_delivery_radius: parseInt(signupForm.preferredRadius) || 5,
+
+                // Files
+                vehicle_registration: signupForm.vehicle_registration,
+                vehicle_insurance: signupForm.vehicle_insurance,
+                license_file: signupForm.license_file,
+                id_proof_file: signupForm.id_proof_file
             });
             toast.success('Registration submitted! Please wait for admin approval.');
             setActiveTab('login');
@@ -176,7 +195,7 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
 
             <div className="w-full flex flex-col lg:flex-row min-h-screen">
 
-                <div className="w-full lg:w-1/2 bg-purple-700 min-h-[50vh] lg:min-h-screen p-8 lg:p-20 flex flex-col justify-center items-center relative overflow-hidden">
+                <div className="w-full lg:w-[30%] bg-purple-700 min-h-[50vh] lg:min-h-screen p-8 lg:p-20 flex flex-col justify-center items-center relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full translate-x-1/2 -translate-y-1/2 blur-[100px] pointer-events-none"></div>
                     <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-white/10 rounded-full -translate-x-1/2 translate-y-1/2 blur-[80px] pointer-events-none"></div>
 
@@ -191,30 +210,19 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
                         </div>
 
                         <div className="text-center lg:text-left transition-all duration-500">
-                            <h2 className="text-5xl lg:text-7xl font-black text-white mb-6 leading-tight">
+                            <h2 className="text-4xl lg:text-6xl font-black text-white mb-6 leading-tight">
                                 Elevate Your <br />
                                 <span className="text-purple-200">Operations.</span>
                             </h2>
-                            <p className="text-purple-50 text-xl leading-relaxed mb-12 max-w-md mx-auto lg:mx-0 font-medium opacity-80">
+                            <p className="text-purple-50 text-base leading-relaxed mb-12 max-w-md mx-auto lg:mx-0 font-medium opacity-80">
                                 The premier logistics portal tailored for modern delivery experts. Track, earn, and excel with every delivery.
                             </p>
                         </div>
-
-                        {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
-                            <div className="flex flex-col items-center lg:items-start group p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                                <div className="text-3xl mb-3">⚡</div>
-                                <span className="text-white font-bold tracking-[3px] uppercase text-[10px]">Real-time Stats</span>
-                            </div>
-                            <div className="flex flex-col items-center lg:items-start group p-6 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                                <div className="text-3xl mb-3">💎</div>
-                                <span className="text-white font-bold tracking-[3px] uppercase text-[10px]">Premium Perks</span>
-                            </div>
-                        </div> */}
                     </div>
                 </div>
 
-                <div className="w-full lg:w-1/2 p-8 lg:p-20 flex flex-col justify-center items-center bg-white min-h-[50vh] lg:min-h-screen">
-                    <div className="w-full max-w-md animate-fadeIn">
+                <div className="w-full lg:w-[70%] p-8 lg:p-20 flex flex-col justify-center items-center bg-white min-h-[50vh] lg:min-h-screen">
+                    <div className="w-full max-w-lg animate-fadeIn">
 
                         <div className="mb-12 text-center lg:text-left">
                             <h2 className="text-4xl lg:text-5xl font-black text-purple-900 tracking-tighter mb-4">Partner Portal</h2>
@@ -343,6 +351,20 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
                                             <input type="text" placeholder="License Number" className="form-input" value={signupForm.licenseNumber} onChange={(e) => setSignupForm({ ...signupForm, licenseNumber: e.target.value })} required />
                                             <input type="date" placeholder="Valid Until" className="form-input text-gray-500" value={signupForm.licenseExpires} onChange={(e) => setSignupForm({ ...signupForm, licenseExpires: e.target.value })} title="License Expiry" />
                                         </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-purple-400 ml-2">VEHICLE REGISTRATION</label>
+                                                <input type="file" className="form-input text-[10px]" onChange={(e) => setSignupForm({ ...signupForm, vehicle_registration: e.target.files[0] })} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-bold text-purple-400 ml-2">VEHICLE INSURANCE</label>
+                                                <input type="file" className="form-input text-[10px]" onChange={(e) => setSignupForm({ ...signupForm, vehicle_insurance: e.target.files[0] })} />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-purple-400 ml-2">LICENSE DOCUMENT</label>
+                                            <input type="file" className="form-input text-[10px]" onChange={(e) => setSignupForm({ ...signupForm, license_file: e.target.files[0] })} />
+                                        </div>
                                     </div>
 
                                     {/* Identity Proof */}
@@ -356,6 +378,10 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
                                                 <option value="drivers_license">Driver's License</option>
                                             </select>
                                             <input type="text" placeholder="ID Number" className="form-input" value={signupForm.idNumber} onChange={(e) => setSignupForm({ ...signupForm, idNumber: e.target.value })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-bold text-purple-400 ml-2">ID PROOF DOCUMENT</label>
+                                            <input type="file" className="form-input text-[10px]" onChange={(e) => setSignupForm({ ...signupForm, id_proof_file: e.target.files[0] })} />
                                         </div>
                                     </div>
 
@@ -375,7 +401,7 @@ const DeliveryAgentLogin = ({ onLoginSuccess }) => {
                                         <h3 className="text-purple-900 font-bold uppercase text-xs tracking-widest border-b border-purple-100 pb-2">Service Preferences</h3>
                                         <div className="grid grid-cols-2 gap-4">
                                             <input type="text" placeholder="Service Cities (comma sep)" className="form-input" value={signupForm.serviceCities} onChange={(e) => setSignupForm({ ...signupForm, serviceCities: e.target.value })} />
-                                            <input type="number" placeholder="Radius (km)" className="form-input" value={signupForm.preferredRadius} onChange={(e) => setSignupForm({ ...signupForm, preferredRadius: e.target.value })} min="1" max="50" />
+                                            <input type="number" placeholder="Radius (km)" className="form-input" value={signupForm.preferredRadius} onChange={(e) => setSignupForm({ ...signupForm, preferredRadius: e.target.value })} max="50" />
                                         </div>
                                     </div>
 

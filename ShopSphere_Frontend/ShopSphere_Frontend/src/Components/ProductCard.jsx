@@ -1,6 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React from "react";
 import { FaHeart, FaShoppingBag, FaStar } from "react-icons/fa";
+
+// Inline SVG placeholder — no network request needed
+const PLACEHOLDER =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%239ca3af'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+function resolveImageUrl(imgPath) {
+    if (!imgPath) return null;
+    if (imgPath.startsWith("http")) return imgPath;
+    const base = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+    if (imgPath.startsWith("/api/")) return `${base}${imgPath}`;
+    if (imgPath.startsWith("/media/")) return `${base}${imgPath}`;
+    if (imgPath.startsWith("media/")) return `${base}/${imgPath}`;
+    return `${base}/media/${imgPath}`;
+}
 
 export default function ProductCard({
     item,
@@ -9,47 +22,24 @@ export default function ProductCard({
     handleAddToCartClick,
     isInWishlist,
 }) {
-    const [currentImgIndex, setCurrentImgIndex] = useState(0);
-
-    // Prepare gallery from item.images or item.gallery
-    const gallery = (item.images || item.gallery || []).map(img => {
-        const imgPath = typeof img === 'string' ? img : img.image;
-        if (imgPath.startsWith('http')) return imgPath;
-        if (imgPath.startsWith('/media/')) return `http://127.0.0.1:8000${imgPath}`;
-        if (imgPath.startsWith('media/')) return `http://127.0.0.1:8000/${imgPath}`;
-        return `http://127.0.0.1:8000/media/${imgPath}`;
-    });
-
-    // Fallback image
-    const displayImage = gallery.length > 0 ? gallery[currentImgIndex] : (item.image || "/public/placeholder.jpg");
-
-    useEffect(() => {
-        if (gallery.length > 1) {
-            const interval = setInterval(() => {
-                setCurrentImgIndex((prev) => (prev + 1) % gallery.length);
-            }, 3000);
-            return () => clearInterval(interval);
-        }
-    }, [gallery.length]);
+    // Pick the FIRST image only — images are locked to their own card
+    const rawImages = item.images || item.gallery || [];
+    const firstImg = rawImages[0];
+    const firstPath = firstImg ? (typeof firstImg === "string" ? firstImg : firstImg.image) : null;
+    const displayImage = resolveImageUrl(firstPath) || item.image || PLACEHOLDER;
 
     return (
-        <motion.div
-            whileHover={{ y: -10 }}
-            className="group bg-white rounded-3xl shadow-lg cursor-pointer h-full flex flex-col"
+        <div
+            className="group bg-white rounded-3xl shadow-lg cursor-pointer h-full flex flex-col hover:-translate-y-2 transition-transform duration-300"
             onClick={() => navigate(`/product/${item.id}`)}
         >
             <div className="relative h-64 overflow-hidden rounded-t-3xl bg-gray-50">
-                <AnimatePresence mode="wait">
-                    <motion.img
-                        key={displayImage}
-                        src={displayImage}
-                        className="w-full h-full object-contain p-4"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                    />
-                </AnimatePresence>
+                <img
+                    src={displayImage}
+                    alt={item.name}
+                    className="w-full h-full object-contain p-4"
+                    onError={(e) => { e.currentTarget.src = PLACEHOLDER; }}
+                />
 
                 <button
                     onClick={(e) => {
@@ -66,7 +56,9 @@ export default function ProductCard({
 
             <div className="p-5 flex flex-col flex-1">
                 <div className="flex-1">
-                    <h3 className="font-bold text-lg text-gray-900 group-hover:text-orange-400 transition-colors line-clamp-1">{item.name}</h3>
+                    <h3 className="font-bold text-lg text-gray-900 group-hover:text-orange-400 transition-colors line-clamp-1">
+                        {item.name}
+                    </h3>
 
                     {/* Rating Section */}
                     <div className="flex items-center gap-2 mt-2">
@@ -106,6 +98,6 @@ export default function ProductCard({
                     </button>
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 }

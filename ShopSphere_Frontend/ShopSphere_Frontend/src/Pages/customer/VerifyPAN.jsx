@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import StepProgress from "../../Components/StepProgress";
 import { useNavigate } from "react-router-dom";
+import { useVendorRegistration } from "../../context/VendorRegistrationContext.jsx";
 
 export default function VerifyPAN() {
     const navigate = useNavigate();
+    const { updateFiles } = useVendorRegistration();
 
     // EXISTING STATE
     const [pan, setPan] = useState("");
@@ -12,6 +14,7 @@ export default function VerifyPAN() {
     // NEW STATE (added)
     const [panName, setPanName] = useState("");
     const [panFile, setPanFile] = useState(null);
+    const [selfieFile, setSelfieFile] = useState(null);
     const [panOwnerChecked, setPanOwnerChecked] = useState(false);
     const [showVerificationModal, setShowVerificationModal] = useState(false);
     const [termsChecked, setTermsChecked] = useState(false);
@@ -65,6 +68,11 @@ export default function VerifyPAN() {
             return;
         }
 
+        if (!selfieFile) {
+            setError("Please upload a selfie with your ID");
+            return;
+        }
+
         if (!panOwnerChecked) {
             setError("Please confirm PAN ownership to continue");
             return;
@@ -110,13 +118,35 @@ export default function VerifyPAN() {
         setPanFile(file);
     };
 
+    const handleSelfieChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = ["image/jpeg", "image/png"];
+
+        if (!allowedTypes.includes(file.type)) {
+            setError("Allowed file types: jpg, png");
+            e.target.value = "";
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setError("Maximum file size is 5 MB");
+            e.target.value = "";
+            return;
+        }
+
+        setError("");
+        setSelfieFile(file);
+    };
+
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#fff5f5] via-[#fef3f2] to-[#f3e8ff]">
 
             {/* Header */}
             <header className="flex items-center justify-between px-8 py-5 bg-gradient-to-r from-orange-400 to-purple-500 shadow-sm">
-                <h1 className="text-x font-bold text-white">
+                <h1 className="text-xl font-bold text-white">
                     ShopSphere Seller Central
                 </h1>
             </header>
@@ -243,6 +273,27 @@ export default function VerifyPAN() {
                                 </p>
                             </div>
 
+                            <div className="mt-6">
+                                <label className="block text-sm font-medium mb-2">
+                                    Selfie with ID
+                                </label>
+
+                                <div className="border-2 border-dashed border-purple-300 rounded-lg p-5 flex items-center gap-4">
+                                    <label className="cursor-pointer bg-gradient-to-r from-orange-400 to-purple-500 text-white px-4 py-2 rounded-lg text-sm">
+                                        Upload Selfie
+                                        <input type="file" hidden onChange={handleSelfieChange} accept="image/jpeg,image/png" />
+                                    </label>
+
+                                    <span className="text-sm text-gray-500">
+                                        {selfieFile ? selfieFile.name : "Hold your ID near your face while taking photo"}
+                                    </span>
+                                </div>
+
+                                <p className="text-xs text-gray-400 mt-2">
+                                    Only images (JPG, PNG) are allowed • Max size: 5 MB
+                                </p>
+                            </div>
+
                             <div className="mt-6 space-y-3 text-sm text-gray-700">
                                 <label className="flex items-start gap-2 cursor-pointer">
                                     <input
@@ -253,16 +304,6 @@ export default function VerifyPAN() {
                                     />
                                     <span>The above PAN belongs to you.</span>
                                 </label>
-
-                                {/* <label className="flex items-start gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="accent-purple-600 mt-1"
-                                        checked={termsChecked}
-                                        onChange={(e) => setTermsChecked(e.target.checked)}
-                                    />
-                                    <span>You agree to ShopSphere Seller T&Cs.</span>
-                                </label> */}
                             </div>
 
 
@@ -277,9 +318,9 @@ export default function VerifyPAN() {
 
                         <button
                             onClick={handleContinue}
-                            disabled={!isPanValid || !panName || !panFile || !panOwnerChecked}
+                            disabled={!isPanValid || !panName || !panFile || !selfieFile || !panOwnerChecked}
                             className={`px-6 py-3 rounded-lg font-medium shadow-md transition
-    ${!isPanValid || !panName || !panFile || !panOwnerChecked
+    ${!isPanValid || !panName || !panFile || !selfieFile || !panOwnerChecked
                                     ? "bg-purple-300 cursor-not-allowed text-white"
                                     : "bg-gradient-to-r from-orange-400 to-purple-500 hover:from-orange-600 hover:to-purple-700 text-white"
                                 }`}
@@ -325,6 +366,12 @@ export default function VerifyPAN() {
                                         localStorage.setItem("pan_number", pan.toUpperCase());
                                         localStorage.setItem("pan_name", panName);
                                         localStorage.setItem("id_type", "pan");
+
+                                        // ✅ Save file to Context
+                                        updateFiles({
+                                            pan_card_file: panFile,
+                                            selfie_with_id_file: selfieFile
+                                        });
 
                                         // ✅ Save credentials if needed
                                         if (!localStorage.getItem("user")) {

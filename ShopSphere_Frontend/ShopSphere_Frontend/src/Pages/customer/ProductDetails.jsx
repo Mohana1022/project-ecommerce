@@ -45,9 +45,15 @@ const ProductDetails = () => {
     const [relatedProducts, setRelatedProducts] = useState([]);
 
     const normalizeImagePath = (path) => {
-        if (!path) return "/public/placeholder.jpg";
+        const placeholder =
+            "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%239ca3af'%3ENo Image%3C/text%3E%3C/svg%3E";
+        if (!path) return placeholder;
         if (path.startsWith('http')) return path;
-        const base = "http://127.0.0.1:8000";
+
+        const defaultBase = "http://127.0.0.1:8000";
+        const base = import.meta.env.VITE_API_BASE_URL || defaultBase;
+
+        if (path.startsWith('/api/')) return `${base}${path}`;
         if (path.startsWith('/media/')) return `${base}${path}`;
         if (path.startsWith('media/')) return `${base}/${path}`;
         return `${base}/media/${path}`;
@@ -389,8 +395,16 @@ const ProductDetails = () => {
                                     "{review.comment}"
                                 </p>
                                 {review.image && (
-                                    <div className="mt-4 rounded-2xl overflow-hidden h-32 w-32 border border-gray-200 shadow-sm">
-                                        <img src={review.image} alt="Review" className="w-full h-full object-cover" />
+                                    <div className="mt-4 rounded-2xl overflow-hidden h-32 w-32 border border-gray-200 shadow-sm relative group">
+                                        <img
+                                            src={review.image}
+                                            alt="Review"
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%239ca3af'%3ENo Image%3C/text%3E%3C/svg%3E";
+                                            }}
+                                        />
                                     </div>
                                 )}
                             </motion.div>

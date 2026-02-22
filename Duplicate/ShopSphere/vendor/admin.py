@@ -7,6 +7,9 @@ class VendorProfileAdmin(admin.ModelAdmin):
     list_filter = ('approval_status', 'is_blocked', 'created_at', 'business_type')
     search_fields = ('shop_name', 'user__username', 'user__email', 'gst_number', 'pan_number')
     readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 50
+    list_select_related = ('user',)
+    raw_id_fields = ('user',)
     
     fieldsets = (
         ('Basic Information', {
@@ -26,6 +29,9 @@ class VendorProfileAdmin(admin.ModelAdmin):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'vendor', 'price', 'quantity', 'status', 'is_blocked', 'created_at')
-    list_filter = ('status', 'is_blocked', 'created_at', 'vendor')
+    list_filter = ('status', 'is_blocked', 'created_at')
     search_fields = ('name', 'description', 'vendor__shop_name')
     readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 50
+    list_select_related = ('vendor',)
+    raw_id_fields = ('vendor',)

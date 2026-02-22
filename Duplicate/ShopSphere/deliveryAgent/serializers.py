@@ -5,6 +5,17 @@ from .models import (
     DeliveryCommission, DeliveryPayment, DeliveryDailyStats, DeliveryFeedback
 )
 from user.models import Order
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class SimpleDeliveryAgentSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='user.get_full_name', read_only=True)
+    email = serializers.CharField(source='user.email', read_only=True)
+    
+    class Meta:
+        model = DeliveryAgentProfile
+        fields = ['id', 'name', 'email', 'phone_number', 'vehicle_type', 'vehicle_number']
 
 
 # ===============================================
@@ -30,13 +41,36 @@ class DeliveryAssignmentListSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.user.get_full_name', read_only=True)
     order_id = serializers.CharField(source='order.id', read_only=True)
     customer_name = serializers.CharField(source='order.user.get_full_name', read_only=True)
+    estimated_delivery_date = serializers.SerializerMethodField()
+    pickup_time = serializers.DateTimeField(read_only=True)
+    delivery_time = serializers.DateTimeField(read_only=True)
+    assigned_at = serializers.DateTimeField(read_only=True)
+    order_status = serializers.CharField(source='order.status', read_only=True)
+
+    def get_estimated_delivery_date(self, obj):
+        if not obj.estimated_delivery_date: return None
+        if hasattr(obj.estimated_delivery_date, 'date'):
+            return obj.estimated_delivery_date.date()
+        return obj.estimated_delivery_date
+    items = serializers.SerializerMethodField()
+    
+    def get_items(self, obj):
+        return [
+            {
+                'product_name': item.product_name,
+                'quantity': item.quantity,
+                'price': str(item.product_price)
+            } for item in obj.order.items.all()
+        ]
     
     class Meta:
         model = DeliveryAssignment
         fields = [
             'id', 'agent_name', 'order_id', 'customer_name',
-            'delivery_city', 'status', 'estimated_delivery_date',
-            'pickup_time', 'delivery_time', 'delivery_fee', 'assigned_at'
+            'delivery_city', 'delivery_address', 'pickup_address',
+            'status', 'order_status', 'estimated_delivery_date',
+            'pickup_time', 'delivery_time', 'delivery_fee', 'assigned_at',
+            'items'
         ]
         read_only_fields = ['id', 'assigned_at']
 
@@ -46,6 +80,20 @@ class DeliveryAssignmentDetailSerializer(serializers.ModelSerializer):
     agent = serializers.SerializerMethodField()
     order_details = serializers.SerializerMethodField()
     tracking_history = DeliveryTrackingSerializer(many=True, read_only=True)
+    
+    estimated_delivery_date = serializers.SerializerMethodField()
+    assigned_at = serializers.DateTimeField(read_only=True)
+    accepted_at = serializers.DateTimeField(read_only=True)
+    started_at = serializers.DateTimeField(read_only=True)
+    completed_at = serializers.DateTimeField(read_only=True)
+    pickup_time = serializers.DateTimeField(read_only=True)
+    delivery_time = serializers.DateTimeField(read_only=True)
+
+    def get_estimated_delivery_date(self, obj):
+        if not obj.estimated_delivery_date: return None
+        if hasattr(obj.estimated_delivery_date, 'date'):
+            return obj.estimated_delivery_date.date()
+        return obj.estimated_delivery_date
     
     class Meta:
         model = DeliveryAssignment
@@ -64,6 +112,25 @@ class DeliveryAssignmentDetailSerializer(serializers.ModelSerializer):
             'id', 'assigned_at', 'accepted_at', 'started_at', 'completed_at',
             'otp_verified', 'tracking_history'
         ]
+
+    signature_image = serializers.SerializerMethodField()
+    delivery_photo = serializers.SerializerMethodField()
+
+    def get_signature_image(self, obj):
+        request = self.context.get('request')
+        if obj.signature_image_data:
+            from django.urls import reverse
+            path = reverse('serve_delivery_signature', kwargs={'assignment_id': obj.id})
+            return request.build_absolute_uri(path) if request else path
+        return None
+
+    def get_delivery_photo(self, obj):
+        request = self.context.get('request')
+        if obj.delivery_photo_data:
+            from django.urls import reverse
+            path = reverse('serve_delivery_photo', kwargs={'assignment_id': obj.id})
+            return request.build_absolute_uri(path) if request else path
+        return None
     
     def get_agent(self, obj):
         return {
@@ -101,6 +168,7 @@ class DeliveryAssignmentCreateSerializer(serializers.ModelSerializer):
 
 class DeliveryFeedbackSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.user.get_full_name', read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
     
     class Meta:
         model = DeliveryFeedback
@@ -119,11 +187,14 @@ class DeliveryFeedbackSerializer(serializers.ModelSerializer):
 
 class DeliveryCommissionSerializer(serializers.ModelSerializer):
     agent_name = serializers.CharField(source='agent.user.get_full_name', read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    approved_at = serializers.DateTimeField(read_only=True)
+    paid_at = serializers.DateTimeField(read_only=True)
     
     class Meta:
         model = DeliveryCommission
         fields = [
-            'id', 'agent_name', 'base_fee', 'distance_bonus', 'time_bonus',
+            'id', 'delivery_assignment', 'agent_name', 'base_fee', 'distance_bonus', 'time_bonus',
             'rating_bonus', 'deductions', 'total_commission', 'status',
             'notes', 'created_at', 'approved_at', 'paid_at'
         ]
@@ -137,6 +208,24 @@ class DeliveryCommissionSerializer(serializers.ModelSerializer):
 # ===============================================
 
 class DeliveryPaymentSerializer(serializers.ModelSerializer):
+    from_date = serializers.SerializerMethodField()
+    to_date = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
+    processed_at = serializers.DateTimeField(read_only=True)
+    completed_at = serializers.DateTimeField(read_only=True)
+
+    def get_from_date(self, obj):
+        if not obj.from_date: return None
+        if hasattr(obj.from_date, 'date'):
+            return obj.from_date.date()
+        return obj.from_date
+
+    def get_to_date(self, obj):
+        if not obj.to_date: return None
+        if hasattr(obj.to_date, 'date'):
+            return obj.to_date.date()
+        return obj.to_date
+    
     class Meta:
         model = DeliveryPayment
         fields = [
@@ -154,6 +243,14 @@ class DeliveryPaymentSerializer(serializers.ModelSerializer):
 # ===============================================
 
 class DeliveryDailyStatsSerializer(serializers.ModelSerializer):
+    date = serializers.SerializerMethodField()
+    
+    def get_date(self, obj):
+        if not obj.date: return None
+        if hasattr(obj.date, 'date'):
+            return obj.date.date()
+        return obj.date
+    
     class Meta:
         model = DeliveryDailyStats
         fields = [
@@ -178,6 +275,7 @@ class DeliveryAgentProfileListSerializer(serializers.ModelSerializer):
     """Delivery agent listing serializer"""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
     
     class Meta:
         model = DeliveryAgentProfile
@@ -196,20 +294,40 @@ class DeliveryAgentProfileListSerializer(serializers.ModelSerializer):
 class DeliveryAgentProfileDetailSerializer(serializers.ModelSerializer):
     """Detailed delivery agent profile serializer"""
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
     pending_commission = serializers.SerializerMethodField()
     active_orders = serializers.SerializerMethodField()
+    date_of_birth = serializers.SerializerMethodField()
+    license_expires = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+    approved_at = serializers.DateTimeField(read_only=True)
+    last_online = serializers.DateTimeField(read_only=True)
+
+    def get_date_of_birth(self, obj):
+        if not obj.date_of_birth: return None
+        if hasattr(obj.date_of_birth, 'date'):
+            return obj.date_of_birth.date()
+        return obj.date_of_birth
+
+    def get_license_expires(self, obj):
+        if not obj.license_expires: return None
+        if hasattr(obj.license_expires, 'date'):
+            return obj.license_expires.date()
+        return obj.license_expires
     
     class Meta:
         model = DeliveryAgentProfile
         fields = [
-            'id', 'user_name', 'user_email', 'phone_number', 'date_of_birth',
+            'id', 'user_name', 'username', 'user_email', 'phone_number', 'date_of_birth',
             'address', 'city', 'state', 'postal_code', 'vehicle_type',
-            'vehicle_number', 'license_number', 'license_expires', 'id_type',
-            'id_number', 'bank_holder_name', 'bank_account_number',
+            'vehicle_number', 'vehicle_registration', 'vehicle_insurance',
+            'license_number', 'license_file', 'license_expires', 'id_type',
+            'id_number', 'id_proof_file', 'bank_holder_name', 'bank_account_number',
             'bank_ifsc_code', 'bank_name', 'approval_status', 'rejection_reason',
             'availability_status', 'is_active', 'is_blocked', 'blocked_reason',
-            'service_cities', 'preferred_delivery_radius', 'working_hours_start',
+            'latitude', 'longitude', 'service_cities', 'service_pincodes', 'preferred_delivery_radius', 'working_hours_start',
             'working_hours_end', 'total_deliveries', 'completed_deliveries',
             'cancelled_deliveries', 'average_rating', 'total_reviews',
             'total_earnings', 'pending_commission', 'active_orders',
@@ -220,6 +338,43 @@ class DeliveryAgentProfileDetailSerializer(serializers.ModelSerializer):
             'total_deliveries', 'completed_deliveries', 'cancelled_deliveries',
             'average_rating', 'total_reviews', 'total_earnings'
         ]
+
+    vehicle_registration = serializers.SerializerMethodField()
+    vehicle_insurance = serializers.SerializerMethodField()
+    license_file = serializers.SerializerMethodField()
+    id_proof_file = serializers.SerializerMethodField()
+
+    def get_vehicle_registration(self, obj):
+        request = self.context.get('request')
+        if obj.vehicle_registration_data:
+            from django.urls import reverse
+            path = reverse('serve_agent_vehicle_registration', kwargs={'agent_id': obj.id})
+            return request.build_absolute_uri(path) if request else path
+        return None
+
+    def get_vehicle_insurance(self, obj):
+        request = self.context.get('request')
+        if obj.vehicle_insurance_data:
+            from django.urls import reverse
+            path = reverse('serve_agent_vehicle_insurance', kwargs={'agent_id': obj.id})
+            return request.build_absolute_uri(path) if request else path
+        return None
+
+    def get_license_file(self, obj):
+        request = self.context.get('request')
+        if obj.license_file_data:
+            from django.urls import reverse
+            path = reverse('serve_agent_license', kwargs={'agent_id': obj.id})
+            return request.build_absolute_uri(path) if request else path
+        return None
+
+    def get_id_proof_file(self, obj):
+        request = self.context.get('request')
+        if obj.id_proof_data:
+            from django.urls import reverse
+            path = reverse('serve_agent_id_proof', kwargs={'agent_id': obj.id})
+            return request.build_absolute_uri(path) if request else path
+        return None
     
     def get_pending_commission(self, obj):
         return str(obj.get_pending_commission())
@@ -240,7 +395,8 @@ class DeliveryAgentProfileCreateSerializer(serializers.ModelSerializer):
             'postal_code', 'vehicle_type', 'vehicle_number', 'license_number',
             'license_expires', 'id_type', 'id_number', 'bank_holder_name',
             'bank_account_number', 'bank_ifsc_code', 'bank_name',
-            'service_cities', 'preferred_delivery_radius', 'password',
+            'latitude', 'longitude',
+            'service_cities', 'service_pincodes', 'preferred_delivery_radius', 'password',
             'password_confirm'
         ]
         extra_kwargs = {
@@ -278,11 +434,9 @@ class DeliveryAgentProfileCreateSerializer(serializers.ModelSerializer):
         from user.models import AuthUser
         user = AuthUser.objects.filter(email=email).first()
         if user:
-            if user.role == 'delivery':
+            if user.role == 'delivery' or DeliveryAgentProfile.objects.filter(user=user).exists():
                 raise serializers.ValidationError({"email": "This account is already registered as a delivery agent."})
-            if user.role == 'admin':
-                raise serializers.ValidationError({"email": "This email belongs to an administrator."})
-            # If customer, we can upgrade them later in create()
+            # Customers and Vendors can proceed to add a delivery profile
             
         # Check phone number uniqueness if creating new user or if phone belongs to another user
         phone_number = data.get('phone_number')
@@ -347,17 +501,16 @@ class DeliveryAgentProfileCreateSerializer(serializers.ModelSerializer):
                 # Get or Create Auth User
                 user = AuthUser.objects.filter(email=email).first()
                 if user:
-                    # Update existing user role
+                    # Update existing user role if they are just a customer
+                    # In a multi-role future, we might want to preserve their 'primary' role 
+                    # but for now, we ensure they have at least 'delivery' or 'vendor'
                     if user.role == 'customer':
                         user.role = 'delivery'
-                        if phone_number:
-                            user.phone = phone_number
-                        # Optionally update password? Let's say yes for this flow
-                        user.set_password(password)
-                        user.save()
-                    else:
-                        # Should have been caught in validate, but safety first
-                        raise serializers.ValidationError({"error": f"Cannot register user with role '{user.role}' as delivery agent."})
+                    
+                    if phone_number and not user.phone:
+                        user.phone = phone_number
+                    
+                    user.save()
                 else:
                     # Create new user
                     user = AuthUser.objects.create_user(
@@ -426,7 +579,15 @@ class DeliveryAgentDashboardSerializer(serializers.Serializer):
         return {
             'total_deliveries_assigned': 0,
             'total_deliveries_completed': 0,
+            'total_deliveries_failed': 0,
+            'total_hours_worked': '0.00',
+            'average_delivery_time': '0.00',
+            'total_distance': '0.00',
+            'average_distance_per_delivery': '0.00',
             'total_earnings': '0.00',
+            'total_bonus': '0.00',
+            'customer_ratings_received': 0,
+            'average_rating': '0.00',
         }
     
     def get_recent_feedback(self, obj):

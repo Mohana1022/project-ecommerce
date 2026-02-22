@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status, generics
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -45,6 +46,20 @@ class DeliveryAgentProfileViewSet(viewsets.ViewSet):
         serializer = DeliveryAgentProfileCreateSerializer(data=request.data, context={'email': request.data.get('email')})
         if serializer.is_valid():
             agent = serializer.save()
+            
+            # Handle Binary File Uploads
+            files_saved = False
+            for field in ['vehicle_registration', 'vehicle_insurance', 'license_file', 'id_proof_file']:
+                if field in request.FILES:
+                    f = request.FILES[field]
+                    setattr(agent, f"{field}_data", f.read())
+                    setattr(agent, f"{field}_mimetype", f.content_type)
+                    setattr(agent, f"{field}_filename", f.name)
+                    files_saved = True
+            
+            if files_saved:
+                agent.save()
+
             return Response({
                 'message': 'Registration successful. Wait for Admin approval.',
                 'agent_id': agent.id
@@ -57,6 +72,7 @@ class DeliveryAgentProfileViewSet(viewsets.ViewSet):
             
         return Response({'error': str(error_msg)}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['get'])
     def get_agent(self, request):
         """Get current delivery agent profile"""
         try:
@@ -66,19 +82,32 @@ class DeliveryAgentProfileViewSet(viewsets.ViewSet):
         except DeliveryAgentProfile.DoesNotExist:
             return Response({'error': 'Delivery agent profile not found'}, status=status.HTTP_404_NOT_FOUND)
     
+    @action(detail=False, methods=['put', 'patch'])
     def update_profile(self, request):
         """Update agent profile"""
         try:
             agent = DeliveryAgentProfile.objects.get(user=request.user)
             
-            allowed_fields = ['phone_number', 'address', 'city', 'state', 'postal_code',
-                            'vehicle_type', 'vehicle_number', 'service_cities',
-                            'preferred_delivery_radius', 'working_hours_start',
-                            'working_hours_end']
+            allowed_fields = [
+                'phone_number', 'address', 'city', 'state', 'postal_code',
+                'vehicle_type', 'vehicle_number', 'service_cities',
+                'service_pincodes', 'preferred_delivery_radius',
+                'working_hours_start', 'working_hours_end', 'latitude', 'longitude',
+                'date_of_birth',
+                'bank_holder_name', 'bank_account_number', 'bank_ifsc_code', 'bank_name',
+            ]
             
             for field in allowed_fields:
                 if field in request.data:
                     setattr(agent, field, request.data[field])
+            
+            # Handle Binary File Updates
+            for field in ['vehicle_registration', 'vehicle_insurance', 'license_file', 'id_proof_file']:
+                if field in request.FILES:
+                    f = request.FILES[field]
+                    setattr(agent, f"{field}_data", f.read())
+                    setattr(agent, f"{field}_mimetype", f.content_type)
+                    setattr(agent, f"{field}_filename", f.name)
             
             agent.save()
             serializer = DeliveryAgentProfileDetailSerializer(agent)
@@ -209,32 +238,52 @@ class DeliveryAssignmentViewSet(viewsets.ViewSet):
     
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
-        """Mark delivery as completed"""
+        """Mark delivery as completed — requires OTP from customer."""
         try:
             agent = DeliveryAgentProfile.objects.get(user=request.user)
-            assignment = DeliveryAssignment.objects.get(id=pk, agent=agent)
-            
-            # Handle proof of delivery
-            if 'signature_image' in request.FILES:
-                assignment.signature_image = request.FILES['signature_image']
-            if 'delivery_photo' in request.FILES:
-                assignment.delivery_photo = request.FILES['delivery_photo']
-            if 'otp_code' in request.data:
-                assignment.otp_code = request.data['otp_code']
-                assignment.otp_verified = True
-            
+            assignment = DeliveryAssignment.objects.select_related('order', 'order__user').get(id=pk, agent=agent)
+
             if assignment.status not in ['picked_up', 'in_transit']:
                 return Response({'error': 'Delivery must be in transit or picked up to complete'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+            # ── OTP Validation ─────────────────────────────────────────────
+            entered_otp = request.data.get('otp_code', '').strip()
+            if not entered_otp:
+                return Response({'error': 'OTP is required to complete delivery. Ask the customer for their OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not assignment.otp_code:
+                return Response({'error': 'No OTP has been generated for this delivery. Ensure you marked it as In Transit first.'}, status=status.HTTP_400_BAD_REQUEST)
+            if entered_otp != assignment.otp_code:
+                return Response({'error': 'Incorrect OTP. Please ask the customer to check their email or in-app notification.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Handle optional proof of delivery (Binary Storage)
+            if 'signature_image' in request.FILES:
+                sig_file = request.FILES['signature_image']
+                assignment.signature_image_data = sig_file.read()
+                assignment.signature_image_mimetype = sig_file.content_type
+                assignment.signature_image_filename = sig_file.name
+                
+            if 'delivery_photo' in request.FILES:
+                photo_file = request.FILES['delivery_photo']
+                assignment.delivery_photo_data = photo_file.read()
+                assignment.delivery_photo_mimetype = photo_file.content_type
+                assignment.delivery_photo_filename = photo_file.name
+
+            assignment.otp_verified = True
+            assignment.save(update_fields=[
+                'otp_verified', 
+                'signature_image_data', 'signature_image_mimetype', 'signature_image_filename',
+                'delivery_photo_data', 'delivery_photo_mimetype', 'delivery_photo_filename'
+            ])
+
             from django.db import transaction
-            
+
             with transaction.atomic():
                 assignment.mark_delivered()
-                
+
                 agent.total_deliveries += 1
                 agent.completed_deliveries += 1
                 agent.save()
-            
+
             serializer = DeliveryAssignmentDetailSerializer(assignment)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except (DeliveryAgentProfile.DoesNotExist, DeliveryAssignment.DoesNotExist):
@@ -601,6 +650,7 @@ class DeliveryAgentDashboardView(generics.RetrieveAPIView):
             raise Http404("Delivery agent profile not found")
     
     def retrieve(self, request, *args, **kwargs):
+        from django.http import Http404
         try:
             agent = self.get_object()
             
@@ -612,7 +662,6 @@ class DeliveryAgentDashboardView(generics.RetrieveAPIView):
                     'reason': agent.rejection_reason if agent.approval_status == 'rejected' else 'Awaiting admin approval'
                 }, status=status.HTTP_403_FORBIDDEN)
 
-            
             if agent.is_blocked:
                 return Response({
                     'error': 'Agent account is blocked',
@@ -621,5 +670,219 @@ class DeliveryAgentDashboardView(generics.RetrieveAPIView):
             
             serializer = self.get_serializer(agent)
             return Response(serializer.data, status=status.HTTP_200_OK)
+        except Http404 as e:
+            # Let DRF handle 404
+            return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            import traceback
+            print(f"Error in DeliveryAgentDashboardView: {str(e)}")
+            traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ===============================================
+#   UPDATE ORDER STATUS (pickup / in_transit / failed)
+# ===============================================
+
+class UpdateOrderStatusView(APIView):
+    """
+    POST /api/delivery/assignments/{pk}/update-status/
+    Body: { "status": "picked_up" | "in_transit" | "failed", "notes": "..." }
+
+    Allowed transitions:
+      accepted     → picked_up
+      picked_up    → in_transit
+      in_transit   → failed
+      accepted     → failed
+      picked_up    → failed
+
+    Each step appends a DeliveryTracking record and syncs Order.status.
+    """
+    permission_classes = [IsAuthenticated]
+
+    # Maps assignment status → Order.status
+    ORDER_STATUS_MAP = {
+        'picked_up':  'shipping',
+        'in_transit': 'shipping',
+        'failed':     'shipping',  # back to shipping so admin can re-assign
+    }
+
+    VALID_TRANSITIONS = {
+        'accepted':   ['picked_up', 'failed'],
+        'picked_up':  ['in_transit', 'failed'],
+        'in_transit': ['failed'],
+    }
+
+    def post(self, request, pk):
+        try:
+            agent = DeliveryAgentProfile.objects.get(user=request.user)
+        except DeliveryAgentProfile.DoesNotExist:
+            return Response({'error': 'Agent profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            assignment = DeliveryAssignment.objects.select_related('order').get(id=pk, agent=agent)
+        except DeliveryAssignment.DoesNotExist:
+            return Response({'error': 'Assignment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = request.data.get('status', '').strip().lower()
+        notes = request.data.get('notes', '')
+
+        allowed = self.VALID_TRANSITIONS.get(assignment.status, [])
+        if new_status not in allowed:
+            return Response({
+                'error': f"Cannot transition from '{assignment.status}' to '{new_status}'. "
+                         f"Allowed: {allowed or 'none'}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        import random
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Update assignment status
+            assignment.status = new_status
+            if new_status == 'picked_up':
+                assignment.pickup_time = timezone.now()
+                assignment.started_at = timezone.now()
+            elif new_status == 'in_transit':
+                # Generate fresh 6-digit OTP for delivery verification
+                otp = f"{random.randint(100000, 999999)}"
+                assignment.otp_code = otp
+            elif new_status == 'failed':
+                assignment.attempts_count += 1
+            assignment.save()
+
+            # Sync order status
+            order_status = self.ORDER_STATUS_MAP.get(new_status)
+            if order_status and assignment.order:
+                assignment.order.status = order_status
+                assignment.order.save(update_fields=['status'])
+
+            # Create tracking record
+            status_labels = {
+                'picked_up':  'Picked Up from Vendor',
+                'in_transit': 'Out for Delivery',
+                'failed':     'Delivery Attempt Failed',
+            }
+            DeliveryTracking.objects.create(
+                delivery_assignment=assignment,
+                latitude=0,
+                longitude=0,
+                address=assignment.delivery_city,
+                status=status_labels.get(new_status, new_status.title()),
+                notes=notes or status_labels.get(new_status, ''),
+            )
+
+        # ── OTP notification (only on in_transit) ──────────────────────────
+        otp_sent = False
+        if new_status == 'in_transit' and assignment.order:
+            customer = assignment.order.user
+            otp = assignment.otp_code
+            order_number = assignment.order.order_number
+
+            # 1. In-app notification
+            try:
+                from user.models import Notification
+                Notification.objects.create(
+                    user=customer,
+                    notification_type='delivery',
+                    title='🔐 Your Delivery OTP',
+                    message=(
+                        f'Your delivery agent is on the way! '
+                        f'Your one-time delivery OTP is: {otp}\n'
+                        f'Share this with the agent to confirm receipt of order #{order_number}.'
+                    ),
+                    related_order=assignment.order,
+                )
+            except Exception:
+                pass  # Non-critical
+
+            # 2. Email
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings as django_settings
+                send_mail(
+                    subject=f'[ShopSphere] Delivery OTP for Order #{order_number}',
+                    message=(
+                        f'Hello {customer.first_name or customer.username},\n\n'
+                        f'Your delivery agent is on the way with your order #{order_number}.\n\n'
+                        f'Your one-time delivery OTP is:\n\n'
+                        f'    {otp}\n\n'
+                        f'Please share this OTP with the agent upon receiving your order.\n'
+                        f'Do NOT share this OTP with anyone else.\n\n'
+                        f'Thank you for shopping with ShopSphere!'
+                    ),
+                    from_email=django_settings.EMAIL_HOST_USER,
+                    recipient_list=[customer.email],
+                    fail_silently=True,
+                )
+                otp_sent = True
+            except Exception:
+                pass  # Non-critical
+
+        return Response({
+            'message': f'Status updated to {new_status}',
+            'assignment_status': assignment.status,
+            'order_status': order_status,
+            'otp_sent': otp_sent,
+        }, status=status.HTTP_200_OK)
+
+
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_agent_vehicle_registration(request, agent_id):
+    """Serve agent vehicle registration from BinaryField"""
+    agent = get_object_or_404(DeliveryAgentProfile, id=agent_id)
+    if not agent.vehicle_registration_data:
+        return Response({'error': 'Data not found'}, status=404)
+    return HttpResponse(agent.vehicle_registration_data, content_type=agent.vehicle_registration_mimetype or 'application/pdf')
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_agent_vehicle_insurance(request, agent_id):
+    """Serve agent vehicle insurance from BinaryField"""
+    agent = get_object_or_404(DeliveryAgentProfile, id=agent_id)
+    if not agent.vehicle_insurance_data:
+        return Response({'error': 'Data not found'}, status=404)
+    return HttpResponse(agent.vehicle_insurance_data, content_type=agent.vehicle_insurance_mimetype or 'application/pdf')
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_agent_license(request, agent_id):
+    """Serve agent license from BinaryField"""
+    agent = get_object_or_404(DeliveryAgentProfile, id=agent_id)
+    if not agent.license_file_data:
+        return Response({'error': 'Data not found'}, status=404)
+    return HttpResponse(agent.license_file_data, content_type=agent.license_file_mimetype or 'application/pdf')
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_agent_id_proof(request, agent_id):
+    """Serve agent ID proof from BinaryField"""
+    agent = get_object_or_404(DeliveryAgentProfile, id=agent_id)
+    if not agent.id_proof_data:
+        return Response({'error': 'Data not found'}, status=404)
+    return HttpResponse(agent.id_proof_data, content_type=agent.id_proof_mimetype or 'application/pdf')
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_delivery_signature(request, assignment_id):
+    """Serve delivery signature from BinaryField"""
+    assignment = get_object_or_404(DeliveryAssignment, id=assignment_id)
+    if not assignment.signature_image_data:
+        return Response({'error': 'Data not found'}, status=404)
+    return HttpResponse(assignment.signature_image_data, content_type=assignment.signature_image_mimetype or 'image/png')
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def serve_delivery_photo(request, assignment_id):
+    """Serve delivery photo from BinaryField"""
+    assignment = get_object_or_404(DeliveryAssignment, id=assignment_id)
+    if not assignment.delivery_photo_data:
+        return Response({'error': 'Data not found'}, status=404)
+    return HttpResponse(assignment.delivery_photo_data, content_type=assignment.delivery_photo_mimetype or 'image/jpeg')
+

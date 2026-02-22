@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import StepProgress from "../../Components/StepProgress";
 import { useNavigate } from "react-router-dom";
+import { useVendorRegistration } from "../../context/VendorRegistrationContext.jsx";
 
 export default function VerifyGST() {
     const navigate = useNavigate();
+    const { updateFiles } = useVendorRegistration();
     const [gst, setGst] = useState("");
+    const [gstFile, setGstFile] = useState(null);
+    const [selfieFile, setSelfieFile] = useState(null);
     const [error, setError] = useState("");
 
     const [credentials, setCredentials] = useState({
@@ -17,6 +21,54 @@ export default function VerifyGST() {
         // 2-digit state code, 10-digit PAN, 1-digit entity, Z, 1-digit check
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{1}Z[0-9A-Z]{1}$/;
         return gstRegex.test(gst);
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = [
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+            setError("Allowed file types: pdf, jpg, png");
+            e.target.value = "";
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            setError("Maximum file size is 10 MB");
+            e.target.value = "";
+            return;
+        }
+
+        setError("");
+        setGstFile(file);
+    };
+
+    const handleSelfieChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const allowedTypes = ["image/jpeg", "image/png"];
+
+        if (!allowedTypes.includes(file.type)) {
+            setError("Allowed file types: jpg, png");
+            e.target.value = "";
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setError("Maximum file size is 5 MB");
+            e.target.value = "";
+            return;
+        }
+
+        setError("");
+        setSelfieFile(file);
     };
 
     const handleContinue = () => {
@@ -32,6 +84,16 @@ export default function VerifyGST() {
             return;
         }
 
+        if (!gstFile) {
+            setError("Please upload GST certificate");
+            return;
+        }
+
+        if (!selfieFile) {
+            setError("Please upload a selfie with your ID");
+            return;
+        }
+
         if (!isUserLoggedIn) {
             if (!credentials.username || !credentials.email || !credentials.password) {
                 setError("Please fill in your account details to continue");
@@ -41,9 +103,16 @@ export default function VerifyGST() {
 
         setError("");
 
+        // ✅ Save to Context
+        updateFiles({
+            id_proof_file: gstFile,
+            selfie_with_id_file: selfieFile
+        });
+
         // ✅ Save all data to localStorage for the next steps
         localStorage.setItem("gst_number", gst.toUpperCase());
         localStorage.setItem("id_type", "gst");
+        localStorage.setItem("id_number", gst.toUpperCase());
         localStorage.setItem("vendorGSTData", JSON.stringify({ gstNumber: gst.toUpperCase(), idType: "gst" }));
 
         if (!isUserLoggedIn) {
@@ -54,18 +123,14 @@ export default function VerifyGST() {
 
         navigate("/store-name");
     };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#fff5f5] via-[#fef3f2] to-[#f3e8ff]">
 
             {/* Header */}
             <header className="flex items-center justify-between px-8 py-5 bg-gradient-to-r from-orange-400 to-purple-500 shadow-sm">
                 <div className="flex items-center gap-1">
-                    {/* <img
-                        src="/s_logo.png"
-                        alt="ShopSphere"
-                        className="h-8 w-12"
-                    /> */}
-                    <h1 className="text-x font-bold text-white">
+                    <h1 className="text-xl font-bold text-white">
                         ShopSphere Seller Central
                     </h1>
                 </div>
@@ -102,9 +167,67 @@ export default function VerifyGST() {
                         />
                     </div>
 
+                    {/* GST File Upload */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Upload GST Certificate
+                        </label>
+                        <div className="border-2 border-dashed border-purple-200 rounded-xl p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-white transition-all">
+                            <input
+                                type="file"
+                                id="gst-file"
+                                hidden
+                                onChange={handleFileChange}
+                            />
+                            <label htmlFor="gst-file" className="flex flex-col items-center cursor-pointer">
+                                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 mb-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                </div>
+                                <span className="text-sm font-medium text-purple-600">
+                                    {gstFile ? gstFile.name : "Click to upload GST document"}
+                                </span>
+                                <span className="text-xs text-gray-400 mt-1">
+                                    PDF, JPG, PNG (Max 10MB)
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Selfie Upload */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Selfie with ID
+                        </label>
+                        <div className="border-2 border-dashed border-purple-200 rounded-xl p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-white transition-all">
+                            <input
+                                type="file"
+                                id="selfie-file"
+                                hidden
+                                onChange={handleSelfieChange}
+                                accept="image/jpeg,image/png"
+                            />
+                            <label htmlFor="selfie-file" className="flex flex-col items-center cursor-pointer">
+                                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 mb-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <span className="text-sm font-medium text-purple-600">
+                                    {selfieFile ? selfieFile.name : "Hold your ID near your face while taking photo"}
+                                </span>
+                                <span className="text-xs text-gray-400 mt-1">
+                                    JPG, PNG (Max 5MB)
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
                     {/* Account Details (if not logged in) */}
                     {!localStorage.getItem("user") && (
-                        <div className="space-y-4 pt-4 border-t border-gray-100">
+                        <div className="space-y-4 pt-4 border-t border-gray-100 mb-6">
                             <h3 className="font-semibold text-gray-700">Account Creation</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

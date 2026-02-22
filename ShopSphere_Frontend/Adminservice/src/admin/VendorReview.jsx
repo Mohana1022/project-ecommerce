@@ -24,9 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../components/Sidebar';
-import NotificationBell from '../components/NotificationBell';
 import { fetchVendorRequests, fetchAllVendors, fetchVendorDetail, approveVendorRequest, rejectVendorRequest, blockVendor, unblockVendor } from '../api/axios';
-import { useNotifications } from '../context/NotificationContext';
 
 const VendorReview = () => {
     const { id } = useParams();
@@ -143,188 +141,191 @@ const VendorReview = () => {
     const canReject = vendor.approval_status === 'pending';
 
     return (
-        <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden text-slate-900">
+        <div className="flex h-screen bg-gray-50/50 font-sans overflow-hidden text-slate-900">
             <Sidebar isSidebarOpen={isSidebarOpen} activePage="Vendors" onLogout={() => window.location.href = '/'} />
 
             <div className="flex-1 flex flex-col min-w-0">
-                <header className="bg-white border-b border-slate-100 px-8 h-20 flex items-center justify-between sticky top-0 z-20">
+                <header className="bg-gradient-to-r from-[#fb923c] via-[#c084fc] to-[#a78bfa] h-20 px-8 flex items-center justify-between sticky top-0 z-20 shadow-lg">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-50 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 transition-all">
+                        <button onClick={() => navigate(-1)} className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-all">
                             <ArrowLeft className="w-5 h-5" />
                         </button>
-                        <div className="w-px h-6 bg-slate-200 hidden sm:block mx-2" />
+                        <div className="w-px h-6 bg-white/20 hidden sm:block mx-2" />
                         <div>
-                            <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                            <h1 className="text-2xl font-black text-white tracking-tight drop-shadow-md">
                                 {vendor.approval_status === 'approved' ? 'Merchant Profile' : 'Security Review'}
                             </h1>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-2">
-                                <Activity className="w-3 h-3 text-indigo-500" /> @{vendor.user_username || vendor.id}
+                            <p className="text-[10px] text-orange-50 font-black uppercase tracking-[2px] opacity-80 leading-none mt-1 flex items-center gap-2">
+                                <Activity className="w-3 h-3" /> @{vendor.user_username || vendor.id}
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <NotificationBell />
-                        <div className="hidden lg:flex items-center bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest gap-2">
-                            <ShieldCheck className="w-3.5 h-3.5" /> Registry Node
+                    <div className="flex items-center gap-6">
+                        <div className="hidden lg:flex items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 text-[10px] font-black text-white uppercase tracking-widest gap-2">
+                            <ShieldCheck className="w-4 h-4" /> Compliance Secured
                         </div>
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-[#F8FAFC]">
-                    <div className="max-w-5xl mx-auto space-y-8 pb-32">
+                <main className="flex-1 overflow-y-auto p-10 bg-gray-50/50">
+                    <div className="max-w-6xl mx-auto space-y-10 pb-32">
                         {/* Elegant Hero Section */}
                         <motion.div
                             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                            className="bg-white rounded-[2rem] p-8 md:p-10 border border-slate-200/60 shadow-sm relative overflow-hidden"
+                            className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-sm relative overflow-hidden"
                         >
-                            <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
-                                <div className="w-24 h-24 bg-indigo-600 rounded-3xl flex items-center justify-center text-4xl font-bold text-white shadow-xl shadow-indigo-100">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-orange-50 to-purple-50 rounded-full -mr-32 -mt-32 blur-3xl opacity-50"></div>
+                            <div className="flex flex-col md:flex-row items-center gap-10 relative z-10">
+                                <div className="w-32 h-32 bg-gradient-to-br from-orange-400 to-purple-500 rounded-[32px] flex items-center justify-center text-5xl font-black text-white shadow-2xl shadow-orange-200">
                                     {(vendor.shop_name || "V").charAt(0)}
                                 </div>
                                 <div className="flex-1 text-center md:text-left">
-                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-3">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${vendor.is_blocked ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                            vendor.approval_status === 'approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                'bg-amber-50 text-amber-600 border-amber-100'
+                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
+                                        <span className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border-2 ${vendor.is_blocked ? 'bg-rose-50 text-rose-500 border-rose-100' :
+                                            vendor.approval_status === 'approved' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' :
+                                                'bg-amber-50 text-amber-500 border-amber-100'
                                             }`}>
-                                            {vendor.is_blocked ? 'Blocked' : vendor.approval_status}
+                                            {vendor.is_blocked ? 'Access Restricted' : vendor.approval_status}
                                         </span>
-                                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest px-3 py-1 bg-slate-50 rounded-full border border-slate-100">Registry ID: {vendor.id}</span>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 py-2 bg-gray-50 rounded-full border border-gray-100 shadow-sm">ID: {vendor.id}</span>
                                     </div>
-                                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">{vendor.shop_name}</h2>
-                                    <p className="text-slate-500 font-medium max-w-2xl text-sm leading-relaxed">{vendor.shop_description || "No description available for this partner profile."}</p>
+                                    <h2 className="text-4xl font-black tracking-tighter text-gray-900 mb-3">{vendor.shop_name}</h2>
+                                    <p className="text-slate-500 font-bold max-w-2xl text-sm leading-relaxed uppercase tracking-wider opacity-60">{vendor.shop_description || "No description available for this partner profile."}</p>
                                 </div>
                                 <div className="hidden lg:block text-right">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Registration Date</p>
-                                    <p className="text-sm font-bold text-slate-900">{new Date(vendor.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[3px] mb-2 opacity-60">Verified Onboarded</p>
+                                    <p className="text-base font-black text-gray-900">{new Date(vendor.created_at).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
                                 </div>
                             </div>
 
                             {(vendor.blocked_reason || vendor.rejection_reason) && (
-                                <div className="mt-8 bg-rose-50/50 border border-rose-100 rounded-2xl p-5 flex items-start gap-4">
-                                    <AlertTriangle className="w-4 h-4 text-rose-500 mt-0.5" />
+                                <div className="mt-10 bg-rose-50 rounded-[24px] p-6 flex items-start gap-4 border border-rose-100 shadow-sm">
+                                    <div className="p-3 bg-white rounded-xl shadow-sm text-rose-500">
+                                        <AlertTriangle className="w-5 h-5" />
+                                    </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-1">Status Remarks</p>
-                                        <p className="text-sm text-slate-600 font-medium leading-relaxed">{vendor.blocked_reason || vendor.rejection_reason}</p>
+                                        <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1.5 ">Protocol Violation Remarks</p>
+                                        <p className="text-sm text-slate-600 font-bold leading-relaxed">{vendor.blocked_reason || vendor.rejection_reason}</p>
                                     </div>
                                 </div>
                             )}
                         </motion.div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
                             {/* Detailed Info */}
-                            <div className="lg:col-span-2 space-y-8">
-                                <section className="bg-white rounded-3xl p-8 md:p-10 border border-slate-200/60 shadow-sm relative overflow-hidden">
-                                    <div className="flex items-center justify-between mb-10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                                                <Building2 className="w-4 h-4" />
-                                            </div>
-                                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Business Identity</h3>
+                            <div className="lg:col-span-2 space-y-10">
+                                <section className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-sm relative overflow-hidden">
+                                    <div className="flex items-center gap-4 mb-10">
+                                        <div className="p-3 bg-orange-50 rounded-2xl shadow-sm text-orange-500">
+                                            <Building2 className="w-6 h-6" />
                                         </div>
+                                        <h3 className="text-lg font-black text-gray-900 tracking-tight">Business Topology</h3>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Official Designation</label>
-                                            <p className="text-sm font-semibold text-slate-900">{vendor.shop_name}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Corporate Title</label>
+                                            <p className="text-base font-black text-gray-900 tracking-tight">{vendor.shop_name}</p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Model Classification</label>
-                                            <p className="text-xs font-bold text-indigo-600 uppercase">{vendor.business_type}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Org Classification</label>
+                                            <p className="text-xs font-black text-purple-600 uppercase bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100 inline-block tracking-widest">{vendor.business_type}</p>
                                         </div>
-                                        <div className="md:col-span-2">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Registered Headquarters</label>
-                                            <p className="text-sm font-medium text-slate-700 flex items-start gap-2 leading-relaxed">
-                                                <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" /> {vendor.address}
+                                        <div className="md:col-span-2 space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Registered Domicile</label>
+                                            <p className="text-[15px] font-black text-slate-700 flex items-start gap-3 leading-relaxed">
+                                                <MapPin className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" /> {vendor.address}
                                             </p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Tax ID (GSTIN)</label>
-                                            <p className="text-sm font-mono font-semibold text-slate-900 tracking-tight">{vendor.gst_number || 'N/A'}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Node Identification (GSTIN)</label>
+                                            <p className="text-sm font-black text-gray-900 tracking-[0.1em] font-mono">{vendor.gst_number || 'N/A'}</p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Tax ID (PAN)</label>
-                                            <p className="text-sm font-mono font-semibold text-slate-900 tracking-tight">{vendor.pan_number || 'N/A'}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Tax Asset (PAN)</label>
+                                            <p className="text-sm font-black text-gray-900 tracking-[0.1em] font-mono">{vendor.pan_number || 'N/A'}</p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Legal PAN Name</label>
-                                            <p className="text-sm font-semibold text-slate-900">{vendor.pan_name || 'N/A'}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Legal Entity Name</label>
+                                            <p className="text-base font-black text-gray-900 tracking-tight">{vendor.pan_name || 'N/A'}</p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Base Logisitics Fee</label>
-                                            <p className="text-sm font-bold text-emerald-600">₹{parseFloat(vendor.shipping_fee || 0).toFixed(2)}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Network Logistics Fee</label>
+                                            <p className="text-lg font-black text-emerald-500 tabular-nums">₹{parseFloat(vendor.shipping_fee || 0).toFixed(2)}</p>
                                         </div>
                                     </div>
                                 </section>
 
-                                <section className="bg-white rounded-3xl p-8 md:p-10 border border-slate-200/60 shadow-sm">
-                                    <div className="flex items-center gap-3 mb-10">
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-                                            <ShieldCheck className="w-4 h-4" />
+                                <section className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-sm relative overflow-hidden">
+                                    <div className="flex items-center gap-4 mb-10">
+                                        <div className="p-3 bg-emerald-50 rounded-2xl shadow-sm text-emerald-500">
+                                            <ShieldCheck className="w-6 h-6" />
                                         </div>
-                                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Settlement Details</h3>
+                                        <h3 className="text-lg font-black text-gray-900 tracking-tight">Settlement Protocol</h3>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Beneficiary Name</label>
-                                            <p className="text-sm font-semibold text-slate-900">{vendor.bank_holder_name || 'N/A'}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Beneficiary Identification</label>
+                                            <p className="text-base font-black text-gray-900 tracking-tight">{vendor.bank_holder_name || 'N/A'}</p>
                                         </div>
                                         <div />
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Account Number</label>
-                                            <p className="text-sm font-mono font-semibold text-slate-900">{vendor.bank_account_number || 'N/A'}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Asset Key (Account Number)</label>
+                                            <p className="text-base font-black text-gray-900 tracking-[0.1em] font-mono">{vendor.bank_account_number || 'N/A'}</p>
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">IFSC Code</label>
-                                            <p className="text-sm font-mono font-semibold text-slate-900">{vendor.bank_ifsc_code || 'N/A'}</p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block opacity-60">Router Hash (IFSC)</label>
+                                            <p className="text-base font-black text-gray-900 tracking-[0.1em] font-mono">{vendor.bank_ifsc_code || 'N/A'}</p>
                                         </div>
                                     </div>
                                 </section>
 
-                                <section className="bg-white rounded-3xl p-8 md:p-10 border border-slate-200/60 shadow-sm">
-                                    <div className="flex items-center gap-3 mb-10">
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                                            <FileText className="w-4 h-4" />
+                                <section className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-sm relative overflow-hidden">
+                                    <div className="flex items-center gap-4 mb-10">
+                                        <div className="p-3 bg-purple-50 rounded-2xl shadow-sm text-purple-500">
+                                            <FileText className="w-6 h-6" />
                                         </div>
-                                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Verification Documents</h3>
+                                        <h3 className="text-lg font-black text-gray-900 tracking-tight">Compliance Artifacts</h3>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         {vendor.id_proof_file && (
-                                            <div className="group p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between hover:bg-white hover:border-indigo-500/30 transition-all cursor-pointer"
+                                            <div className="group p-6 bg-gray-50 rounded-3xl border border-transparent hover:border-purple-200 hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-xl"
                                                 onClick={() => window.open(`http://localhost:8000${vendor.id_proof_file}`, '_blank')}>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-500 border border-slate-200">
-                                                        <FileText className="w-5 h-5" />
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-purple-500 border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
+                                                        <FileText className="w-7 h-7" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-bold text-slate-900">{vendor.id_type || 'Identity Proof'}</p>
-                                                        <p className="text-[10px] font-medium text-slate-400 uppercase">{vendor.id_number || 'Official ID'}</p>
+                                                        <p className="text-[13px] font-black text-gray-900 leading-tight mb-1">{vendor.id_type || 'Identity Matrix'}</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{vendor.id_number || 'ID-ALPHA-UNRESOLVED'}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         )}
 
                                         {vendor.pan_card_file && (
-                                            <div className="group p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between hover:bg-white hover:border-indigo-500/30 transition-all cursor-pointer"
+                                            <div className="group p-6 bg-gray-50 rounded-3xl border border-transparent hover:border-orange-200 hover:bg-white transition-all cursor-pointer shadow-sm hover:shadow-xl"
                                                 onClick={() => window.open(`http://localhost:8000${vendor.pan_card_file}`, '_blank')}>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-rose-500 border border-slate-200">
-                                                        <ShieldCheck className="w-5 h-5" />
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-orange-500 border border-gray-100 shadow-sm group-hover:scale-110 transition-transform">
+                                                        <ShieldCheck className="w-7 h-7" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-bold text-slate-900">PAN Verification</p>
-                                                        <p className="text-[10px] font-medium text-slate-400 uppercase">{vendor.pan_number || 'Tax Asset'}</p>
+                                                        <p className="text-[13px] font-black text-gray-900 leading-tight mb-1">Taxation Asset Review</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{vendor.pan_number || 'TAX-NODE-EMPTY'}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         )}
 
                                         {!vendor.id_proof_file && !vendor.pan_card_file && (
-                                            <div className="col-span-2 py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">
-                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">No documentation found</p>
+                                            <div className="col-span-2 py-16 text-center border-4 border-dashed border-gray-50 rounded-[32px]">
+                                                <div className="p-4 bg-gray-50 rounded-full inline-block mb-4">
+                                                    <AlertTriangle className="w-10 h-10 text-slate-200" />
+                                                </div>
+                                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">Zero Artifacts Detected</p>
                                             </div>
                                         )}
                                     </div>
@@ -332,40 +333,50 @@ const VendorReview = () => {
                             </div>
 
                             {/* Contact & Registry Info */}
-                            <div className="space-y-8">
-                                <section className="bg-white rounded-3xl p-8 border border-slate-200/60 shadow-sm">
-                                    <div className="flex items-center gap-3 mb-10">
-                                        <div className="w-6 h-6 rounded bg-slate-50 flex items-center justify-center text-slate-400">
-                                            <Mail className="w-3.5 h-3.5" />
-                                        </div>
-                                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Contact Node</h3>
+                            <div className="space-y-10">
+                                <section className="bg-white rounded-[40px] p-10 border border-gray-100 shadow-sm relative overflow-hidden">
+                                    <div className="flex items-center gap-3 mb-10 opacity-60">
+                                        <Mail className="w-4 h-4 text-slate-400" />
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Network Node Contacts</h3>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Official Email</p>
-                                            <p className="text-sm font-semibold text-slate-900 truncate">{vendor.user_email || 'Unspecified'}</p>
+                                    <div className="space-y-6">
+                                        <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 shadow-inner">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 opacity-60">System Email</p>
+                                            <p className="text-sm font-black text-gray-900 break-all leading-relaxed">{vendor.user_email || 'Unspecified'}</p>
                                         </div>
 
-                                        <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Primary Phone</p>
-                                            <p className="text-sm font-semibold text-slate-900">{vendor.user_phone || 'Unspecified'}</p>
+                                        <div className="p-6 bg-gray-50/50 rounded-3xl border border-gray-100 shadow-inner">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 opacity-60">Secure Voice Line</p>
+                                            <p className="text-sm font-black text-gray-900 tracking-widest">{vendor.user_phone || 'Unspecified'}</p>
                                         </div>
                                     </div>
                                 </section>
 
-                                <section className="p-8 bg-indigo-600 rounded-3xl text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
+                                <section className="p-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-[40px] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden group border border-white/20">
+                                    <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-24 -mt-24 blur-3xl group-hover:bg-white/20 transition-all duration-1000"></div>
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <ShieldCheck className="w-4 h-4 text-indigo-200" />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-100">Audit Status</span>
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
+                                                <ShieldCheck className="w-5 h-5 text-white" />
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-[3px] text-indigo-100">Audit Status</span>
                                         </div>
-                                        <p className="text-xs font-medium text-indigo-50 leading-relaxed mb-6">This partner profile has been fully synchronized with the central marketplace registry.</p>
-                                        <div className="h-1.5 w-full bg-indigo-500 rounded-full overflow-hidden">
-                                            <div className="h-full bg-white w-full rounded-full" />
+                                        <p className="text-sm font-bold text-indigo-50 leading-relaxed mb-10 opacity-90">This partner profile is fully synchronized with the central marketplace node. Integrity hash verified.</p>
+                                        <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden mb-2">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: "100%" }}
+                                                transition={{ duration: 1, delay: 0.5 }}
+                                                className="h-full bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                                            />
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-indigo-200">
+                                            <span>Sync Data</span>
+                                            <span>100% Verified</span>
                                         </div>
                                     </div>
-                                    <Activity className="absolute -bottom-8 -right-8 w-32 h-32 text-indigo-500 opacity-20 group-hover:scale-110 transition-transform duration-700" />
+                                    <Activity className="absolute -bottom-10 -right-10 w-40 h-40 text-white opacity-10 group-hover:scale-125 transition-transform duration-1000 rotate-12" />
                                 </section>
                             </div>
                         </div>
@@ -373,11 +384,16 @@ const VendorReview = () => {
                 </main>
 
                 {/* Footer Action Bar */}
-                <div className={`fixed bottom-0 right-0 left-0 bg-white/95 backdrop-blur-md border-t border-slate-100 p-6 z-40 transition-all duration-300`} style={{ left: isSidebarOpen ? '280px' : '80px' }}>
-                    <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-8">
-                        <div>
-                            <h4 className="text-base font-bold text-slate-900">Administrative Governance</h4>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Decision finalized upon authentication</p>
+                <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 bg-white rounded-[32px] border border-gray-100 p-6 z-40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] transition-all duration-300 w-[90%] max-w-5xl backdrop-blur-md`}>
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-10">
+                        <div className="flex items-center gap-5">
+                            <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-slate-400">
+                                <Activity className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-black text-gray-900 tracking-tight">Administrative Governance</h4>
+                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 opacity-60">Status updates will be propagated globally</p>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -385,9 +401,9 @@ const VendorReview = () => {
                                 <button
                                     onClick={() => handleActionClick('Blocked')}
                                     disabled={isActioning}
-                                    className="flex-1 sm:flex-none px-8 py-3.5 bg-white border border-slate-200 text-rose-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:border-rose-200 transition-all disabled:opacity-50"
+                                    className="flex-1 sm:flex-none px-8 py-5 bg-white border-2 border-rose-100 text-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:border-rose-300 active:scale-95 transition-all disabled:opacity-30 shadow-sm"
                                 >
-                                    Force Block
+                                    Force Restriction
                                 </button>
                             )}
 
@@ -395,9 +411,9 @@ const VendorReview = () => {
                                 <button
                                     onClick={() => handleActionClick('Unblocked')}
                                     disabled={isActioning}
-                                    className="flex-1 sm:flex-none px-8 py-3.5 bg-white border border-slate-200 text-emerald-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-200 transition-all disabled:opacity-50"
+                                    className="flex-1 sm:flex-none px-8 py-5 bg-white border-2 border-emerald-100 text-emerald-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-300 active:scale-95 transition-all disabled:opacity-30 shadow-sm"
                                 >
-                                    Unblock Access
+                                    Restore Terminal
                                 </button>
                             )}
 
@@ -405,9 +421,9 @@ const VendorReview = () => {
                                 <button
                                     onClick={() => handleActionClick('Rejected')}
                                     disabled={isActioning}
-                                    className="flex-1 sm:flex-none px-8 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all disabled:opacity-50"
+                                    className="flex-1 sm:flex-none px-8 py-5 bg-white border-2 border-gray-100 text-slate-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-50 hover:border-gray-300 active:scale-95 transition-all disabled:opacity-30 shadow-sm"
                                 >
-                                    Reject Entry
+                                    Decline Request
                                 </button>
                             )}
 
@@ -415,17 +431,17 @@ const VendorReview = () => {
                                 <button
                                     onClick={() => handleActionClick('Approved')}
                                     disabled={isActioning}
-                                    className="flex-1 sm:flex-none px-10 py-3.5 bg-indigo-600 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-3 min-w-[200px]"
+                                    className="flex-1 sm:flex-none px-12 py-5 bg-gradient-to-r from-orange-400 to-purple-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl shadow-orange-400/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-4 min-w-[240px]"
                                 >
                                     {isActioning ? (
                                         <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Authorizing...
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            Authenticating...
                                         </>
                                     ) : (
                                         <>
-                                            <ShieldCheck className="w-4 h-4 text-indigo-200" />
-                                            Publish Clearance
+                                            <ShieldCheck className="w-5 h-5 text-white/50" />
+                                            Grant Clearance
                                         </>
                                     )}
                                 </button>
@@ -441,39 +457,38 @@ const VendorReview = () => {
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-2xl"
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                             onClick={() => setIsActionModalOpen(false)}
                         />
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white border border-slate-200 rounded-[3rem] p-16 max-w-sm w-full relative z-10 shadow-2xl text-center"
+                            className="bg-white border border-gray-100 rounded-[3rem] p-16 max-w-sm w-full relative z-10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.3)] text-center"
                         >
-                            <div className="w-28 h-28 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mb-12 border border-rose-100 mx-auto">
-                                <AlertTriangle className="w-14 h-14 text-rose-500" />
+                            <div className="w-32 h-32 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mb-10 border border-rose-100 mx-auto shadow-inner">
+                                <AlertTriangle className="w-16 h-16 text-rose-500" />
                             </div>
-                            <h2 className="text-3xl font-black text-slate-900 mb-6 tracking-tighter uppercase">Review Execution</h2>
-                            <p className="text-sm text-slate-500 font-bold leading-relaxed mb-12 px-2 italic">
-                                Modifying partner status to <span className="text-slate-900 font-black uppercase tracking-[0.2em] underline decoration-indigo-600/40">{pendingAction}</span>. Confirm?
+                            <h2 className="text-3xl font-black text-gray-900 mb-4 tracking-tighter uppercase">Review Sequence</h2>
+                            <p className="text-[13px] text-slate-500 font-bold leading-relaxed mb-12 px-2 italic uppercase tracking-wider opacity-60">
+                                Global status modification to <span className="text-gray-900 font-black underline decoration-orange-500/40 decoration-4 underline-offset-8">{pendingAction}</span>. Confirm execution?
                             </p>
                             <div className="flex flex-col gap-5">
                                 <button
                                     onClick={confirmAction}
-                                    className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                                    className="w-full py-5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
                                 >
-                                    Execute Order
+                                    Authorize Execution
                                 </button>
                                 <button
                                     onClick={() => setIsActionModalOpen(false)}
-                                    className="w-full py-5 bg-white border border-slate-200 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all"
+                                    className="w-full py-5 bg-white border-2 border-gray-100 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-all"
                                 >
-                                    Decline Operation
+                                    Abort Operation
                                 </button>
                             </div>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
-
         </div>
     );
 };

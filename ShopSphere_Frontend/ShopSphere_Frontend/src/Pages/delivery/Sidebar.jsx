@@ -1,18 +1,34 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { fetchAgentProfile } from "../../api/delivery_axios";
 import {
     FaTachometerAlt,
     FaClipboardList,
     FaMoneyBillWave,
     FaSignOutAlt,
     FaBars,
-    FaTimes
+    FaTimes,
+    FaUser
 } from "react-icons/fa";
 
 export default function DeliverySidebar() {
     const [desktopOpen, setDesktopOpen] = useState(true);
+    const [profile, setProfile] = useState(null);
     const location = useLocation();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const loadProfile = async () => {
+            try {
+                const data = await fetchAgentProfile();
+                setProfile(data);
+            } catch (err) {
+                console.error("Failed to load agent profile in sidebar", err);
+            }
+        };
+        loadProfile();
+    }, []);
+
 
     useEffect(() => {
         // notify layout about current sidebar state
@@ -28,6 +44,7 @@ export default function DeliverySidebar() {
         { id: 'dashboard', label: 'Dashboard', icon: FaTachometerAlt, path: '/delivery/dashboard' },
         { id: 'assigned', label: 'Assigned Orders', icon: FaClipboardList, path: '/delivery/assigned' },
         { id: 'earnings', label: 'Earnings', icon: FaMoneyBillWave, path: '/delivery/earnings' },
+        { id: 'profile', label: 'My Profile', icon: FaUser, path: '/delivery/profile' },
     ];
 
     return (
@@ -65,13 +82,24 @@ export default function DeliverySidebar() {
                     );
                 })}
 
-                <li className="mt-8 pt-4 border-t border-gray-100">
+                <li className="mt-8 pt-4 border-t border-gray-100 mb-4">
+                    {profile && desktopOpen && (
+                        <div className="flex items-center gap-3 px-3 py-4 bg-purple-50 rounded-2xl mb-4 border border-purple-100">
+                            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-purple-200">
+                                {profile.user_name?.[0] || profile.username?.[0] || 'A'}
+                            </div>
+                            <div className="overflow-hidden">
+                                <p className="text-[10px] font-black text-purple-600 uppercase tracking-wider truncate">Active Agent</p>
+                                <p className="text-xs font-black text-gray-900 truncate uppercase">{profile.user_name || profile.username}</p>
+                            </div>
+                        </div>
+                    )}
                     <button
                         onClick={onLogout}
-                        className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-500 transition-all"
+                        className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-red-50 text-red-500 transition-all font-black text-[10px] uppercase tracking-widest"
                     >
                         <FaSignOutAlt className="h-5 w-5" />
-                        {desktopOpen && <span className="font-semibold">Logout</span>}
+                        {desktopOpen && <span>Secure Logout</span>}
                     </button>
                 </li>
             </ul>

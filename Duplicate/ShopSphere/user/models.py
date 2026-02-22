@@ -29,8 +29,20 @@ class AuthUser(AbstractUser):
     class Meta:
         ordering = ['-date_joined']
 
+    @property
+    def all_roles(self):
+        """Returns a list of all roles this user occupies"""
+        roles = ['customer'] # Everyone is a customer by default
+        if hasattr(self, 'vendor_profile'):
+            roles.append('vendor')
+        if hasattr(self, 'delivery_agent_profile'):
+            roles.append('delivery')
+        if self.is_superuser or self.is_staff:
+            roles.append('admin')
+        return list(set(roles))
+
     def __str__(self):
-        return f"{self.email} - {self.role}"
+        return f"{self.email} - ({', '.join(self.all_roles)})"
 
     def is_account_active(self):
         """Check if account is truly active (not blocked/suspended)"""
@@ -135,11 +147,18 @@ class Order(models.Model):
     """User orders"""
     ORDER_STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
-        ('shipping', 'Shipping'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('packed', 'Packed'),
+        ('delivery_assigned', 'Delivery Assigned'),
+        ('out_for_delivery', 'Out for Delivery'),
+        ('nearby', 'Nearby'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
         ('returned', 'Returned'),
+        # legacy
+        ('confirmed', 'Confirmed'),
+        ('shipping', 'Shipping'),
     ]
     
     PAYMENT_STATUS_CHOICES = [
@@ -214,6 +233,14 @@ class OrderItem(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     vendor_status = models.CharField(max_length=20, choices=VENDOR_STATUS_CHOICES, default='received')
+    
+    # Commission Details
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    # Settlement Details
+    is_settled = models.BooleanField(default=False)
+    settled_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-order__created_at']
@@ -235,6 +262,21 @@ class OrderTracking(models.Model):
 
     def __str__(self):
         return f"{self.order.order_number} - {self.status}"
+
+
+class OrderStatusHistory(models.Model):
+    """Detailed status history for the full order lifecycle"""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_history')
+    status = models.CharField(max_length=50)
+    changed_by = models.ForeignKey('user.AuthUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='order_status_changes')
+    notes = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"{self.order.order_number} → {self.status} at {self.timestamp}"
 
 
 class Payment(models.Model):
@@ -327,9 +369,9 @@ class VendorReview(models.Model):
 class UserWallet(models.Model):
     """User wallet for storing balance and transaction history"""
     user = models.OneToOneField(AuthUser, on_delete=models.CASCADE, related_name='wallet')
-    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    total_credited = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    total_debited = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    total_credited = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    total_debited = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -343,8 +385,9 @@ class UserWallet(models.Model):
     def add_balance(self, amount, description=''):
         """Add balance to wallet"""
         if amount > 0:
-            self.balance += amount
-            self.total_credited += amount
+            # Cast existing values to Decimal to avoid float + Decimal TypeError
+            self.balance = Decimal(str(self.balance)) + Decimal(str(amount))
+            self.total_credited = Decimal(str(self.total_credited)) + Decimal(str(amount))
             self.save()
             WalletTransaction.objects.create(
                 wallet=self,
@@ -357,9 +400,12 @@ class UserWallet(models.Model):
 
     def deduct_balance(self, amount, description=''):
         """Deduct balance from wallet"""
-        if amount > 0 and self.balance >= amount:
-            self.balance -= amount
-            self.total_debited += amount
+        amount_dec = Decimal(str(amount))
+        balance_dec = Decimal(str(self.balance))
+        
+        if amount_dec > 0 and balance_dec >= amount_dec:
+            self.balance = balance_dec - amount_dec
+            self.total_debited = Decimal(str(self.total_debited)) + amount_dec
             self.save()
             WalletTransaction.objects.create(
                 wallet=self,
@@ -684,3 +730,30 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review for {self.Product.name} by {self.reviewer_name or (self.user.username if self.user else 'Anonymous')}"
+
+
+# ===============================================
+#          SEARCH TRACKING (ML Feature)
+# ===============================================
+
+class SearchLog(models.Model):
+    """
+    Logs every search query made on the platform.
+    Used by the ML-based 'most searched products' endpoint.
+    """
+    query = models.CharField(max_length=255, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='search_logs'
+    )
+    session_key = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Search: '{self.query}' at {self.created_at}"

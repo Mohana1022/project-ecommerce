@@ -22,18 +22,18 @@ const PendingStatusPage = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#fff5f5] via-[#fef3f2] to-[#f3e8ff] flex items-center justify-center px-4 py-12">
+        <div className="min-h-screen bg-gradient-to-br from-[#fff5f5] via-[#fef3f2] to-[#f3e8ff] flex items-center justify-center px-4 py-2">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="max-w-2xl w-full"
+                className="max-w-md w-full"
             >
                 {/* Main Card */}
-                <div className="bg-white rounded-[40px] shadow-2xl shadow-orange-200/50 p-8 md:p-12 border border-orange-100">
+                <div className="bg-white rounded-[24px] shadow-2xl shadow-orange-200/50 p-5 md:p-6 border border-orange-100">
                     {/* Status Badge */}
-                    <div className="flex justify-center mb-8">
-                        <div className="inline-flex items-center gap-3 px-6 py-3 bg-orange-100 text-orange-700 rounded-full border-2 border-orange-200">
+                    <div className="flex justify-center mb-4">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-full border border-orange-200">
                             <motion.div
                                 animate={{ rotate: 360 }}
                                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
@@ -45,41 +45,41 @@ const PendingStatusPage = () => {
                     </div>
 
                     {/* Icon */}
-                    <div className="flex justify-center mb-8">
-                        <div className="w-32 h-32 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center shadow-lg">
+                    <div className="flex justify-center mb-3">
+                        <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center shadow-md">
                             <motion.div
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ duration: 2, repeat: Infinity }}
                             >
-                                <ShoppingBag size={64} className="text-orange-400" strokeWidth={1.5} />
+                                <ShoppingBag size={32} className="text-orange-400" strokeWidth={1.5} />
                             </motion.div>
                         </div>
                     </div>
 
                     {/* Main Heading */}
-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 text-center mb-6 tracking-tight leading-tight">
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 text-center mb-3 tracking-tight leading-tight">
                         Your Seller Registration is <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-purple-500">
-                            Under Review
+                            Under Processing
                         </span>
                     </h1>
 
                     {/* Subtext */}
-                    <p className="text-lg text-gray-600 text-center mb-8 leading-relaxed font-medium max-w-xl mx-auto">
-                        Thank you for registering as a seller on ShopSphere.
-                        Your request is currently under review by our admin team.
+                    <p className="text-sm text-gray-600 text-center mb-4 leading-relaxed font-medium max-w-sm mx-auto">
+                        Your request is currently <span className="text-orange-600 font-bold">under processing</span>.
+                        Within 7 working days you will get the update.
                     </p>
 
                     {/* Info Box */}
-                    <div className="bg-orange-50 border-2 border-orange-200 rounded-3xl p-6 mb-8">
-                        <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <Clock size={24} className="text-orange-400" />
+                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-5">
+                        <div className="flex items-start gap-2.5">
+                            <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+                                <Clock size={18} className="text-orange-400" />
                             </div>
                             <div>
-                                <h3 className="font-black text-gray-900 mb-2 text-lg">What's Next?</h3>
-                                <p className="text-gray-700 font-medium leading-relaxed">
-                                    You'll be notified once your seller account is approved. This typically takes up to <span className="font-black text-orange-700">7 working days</span>.
+                                <h3 className="font-black text-gray-900 mb-0.5 text-sm">What's Next?</h3>
+                                <p className="text-[13px] text-gray-700 font-medium leading-tight">
+                                    You'll be notified once approved. Typically takes <span className="font-black text-orange-700">7 working days</span>.
                                 </p>
                             </div>
                         </div>
@@ -126,54 +126,54 @@ const ApprovedStatusPage = () => {
     const features = [
         {
             icon: Package,
-            title: "Add Products",
-            description: "List your inventory"
+            title: "Products",
+            description: "List inventory"
         },
         {
             icon: BarChart3,
-            title: "Manage Orders",
-            description: "Track and fulfill"
+            title: "Orders",
+            description: "Track sales"
         },
         {
             icon: Wallet,
-            title: "Track Earnings",
-            description: "Monitor revenue"
+            title: "Earnings",
+            description: "Revenue"
         }
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#fff5f5] via-[#fef3f2] to-[#f3e8ff] flex items-center justify-center px-4 py-12">
+        <div className="min-h-screen bg-gradient-to-br from-[#fff5f5] via-[#fef3f2] to-[#f3e8ff] flex items-center justify-center px-4 py-2">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="max-w-3xl w-full"
+                className="max-w-lg w-full"
             >
                 {/* Main Card */}
-                <div className="bg-white rounded-[40px] shadow-2xl shadow-purple-200/50 p-8 md:p-12 border border-purple-100">
+                <div className="bg-white rounded-[24px] shadow-2xl shadow-purple-200/50 p-5 md:p-6 border border-purple-100">
                     {/* Success Badge */}
-                    <div className="flex justify-center mb-8">
-                        <div className="inline-flex items-center gap-3 px-6 py-3 bg-purple-100 text-purple-700 rounded-full border-2 border-purple-200">
+                    <div className="flex justify-center mb-4">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full border border-purple-200">
                             <CheckCircle2 size={24} className="fill-current" />
                             <span className="font-black text-sm uppercase tracking-wider">Approved</span>
                         </div>
                     </div>
 
                     {/* Celebration Icon */}
-                    <div className="flex justify-center mb-8">
-                        <div className="w-32 h-32 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center shadow-lg">
+                    <div className="flex justify-center mb-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-purple-200 rounded-full flex items-center justify-center shadow-md">
                             <motion.div
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ type: "spring", stiffness: 200, damping: 10 }}
                             >
-                                <ShoppingBag size={64} className="text-purple-600" strokeWidth={1.5} />
+                                <ShoppingBag size={32} className="text-purple-600" strokeWidth={1.5} />
                             </motion.div>
                         </div>
                     </div>
 
                     {/* Main Heading */}
-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 text-center mb-4 tracking-tight leading-tight">
+                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 text-center mb-2 tracking-tight leading-tight">
                         Welcome to <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-purple-600 to-purple-600">
                             ShopSphere Seller Hub
@@ -181,28 +181,28 @@ const ApprovedStatusPage = () => {
                     </h1>
 
                     {/* Success Message */}
-                    <div className="text-center mb-8">
-                        <p className="text-2xl font-black text-purple-600 mb-2">🎉 Congratulations!</p>
-                        <p className="text-lg text-gray-600 font-medium">
-                            Your seller account has been successfully approved.
+                    <div className="text-center mb-4">
+                        <p className="text-lg font-black text-purple-600">🎉 Congratulations!</p>
+                        <p className="text-xs text-gray-600 font-medium">
+                            Your seller account has been approved.
                         </p>
                     </div>
 
                     {/* Features Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mb-6">
                         {features.map((feature, index) => (
                             <motion.div
                                 key={index}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: index * 0.1 + 0.3 }}
-                                className="bg-gradient-to-br from-[#fff5f5] to-[#f3e8ff] rounded-3xl p-6 text-center border border-orange-100"
+                                className="bg-gradient-to-br from-[#fff5f5] to-[#f3e8ff] rounded-xl p-3 text-center border border-orange-50"
                             >
-                                <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-                                    <feature.icon size={28} className="text-orange-400" />
+                                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center mx-auto mb-2 shadow-sm">
+                                    <feature.icon size={16} className="text-orange-400" />
                                 </div>
-                                <h3 className="font-black text-gray-900 mb-1 text-base">{feature.title}</h3>
-                                <p className="text-sm text-gray-600 font-medium">{feature.description}</p>
+                                <h3 className="font-black text-gray-900 mb-0.5 text-xs">{feature.title}</h3>
+                                <p className="text-[10px] text-gray-500 font-medium">{feature.description}</p>
                             </motion.div>
                         ))}
                     </div>
@@ -308,10 +308,12 @@ const SellerPage = () => {
                 // Fetch vendor status from backend
                 const response = await getVendorStatus();
 
-                // Expected response: { approval_status: 'pending' | 'approved' }
-                if (response && response.approval_status) {
+                // Be resilient to different key names (status vs approval_status)
+                const currentStatus = response.approval_status || response.status;
+
+                if (currentStatus) {
                     // Convert to uppercase to match our component logic
-                    setStatus(response.approval_status.toUpperCase());
+                    setStatus(currentStatus.toUpperCase());
                 } else {
                     // If no vendor record found, show default landing
                     setStatus('NOT_REGISTERED');

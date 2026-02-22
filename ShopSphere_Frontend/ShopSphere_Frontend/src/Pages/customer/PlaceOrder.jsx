@@ -95,6 +95,7 @@ function PlaceOrder() {
             localStorage.setItem(
                 "orderSuccess",
                 JSON.stringify({
+                    order_number: response.order_number,
                     transactionId: response.order_number || `COD-${Date.now()}`,
                     items: cartObjects,
                     totalAmount: totalAmount,

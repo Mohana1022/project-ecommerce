@@ -19,7 +19,9 @@ export const ProductProvider = ({ children }) => {
         setIsLoading(true);
         try {
             const data = await fetchAllProducts();
-            setProducts(Array.isArray(data) ? data : []);
+            // API returns a paginated envelope: { count, num_pages, current_page, results }
+            const products = Array.isArray(data) ? data : (data?.results ?? []);
+            setProducts(products);
         } catch (error) {
             console.error("Failed to load products:", error);
         } finally {

@@ -11,8 +11,10 @@ import SellerPage from "../Pages/customer/SellerPage";
 import DeliveryDashboard from "../Pages/delivery/dashboard";
 import AssignedOrders from "../Pages/delivery/assignedorder";
 import EarningsPage from "../Pages/delivery/earnings";
+import DeliveryProfile from "../Pages/delivery/Profile";
+import DeliveryOrderDetail from "../Pages/delivery/DeliveryOrderDetail";
 import LandingPage from "../Components/common/LandingPage";
-import AccountVerification from "../Pages/customer/Accountverification";
+import AccountVerification from "../Pages/customer/AccountVerification";
 import VerifyOTP from "../Pages/customer/VerifyOTP";
 import StoreName from "../Pages/customer/StoreName";
 import ShippingAddress from "../Pages/customer/ShippingAddress";
@@ -30,6 +32,8 @@ import AddProduct from "../Pages/vendor/AddProduct";
 import Products from "../Pages/vendor/Products";
 import Earnings from "../Pages/vendor/Earnings";
 import VendorLayout from "../Pages/vendor/VendorLayout";
+import FeeStructure from "../Pages/vendor/FeeStructure";
+import VendorProfile from "../Pages/vendor/VendorProfile";
 import DeliveryLayout from "../Pages/delivery/DeliveryLayout";
 import ForgotPassword from "../Pages/customer/ForgotPassword";
 import ResetPassword from "../Pages/customer/ResetPassword";
@@ -58,6 +62,7 @@ function AppRoutes() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/place-order" element={<PlaceOrder />} />
+            <Route path="/track-order/:orderNumber" element={<OrderTracking />} />
 
 
             {/* <Route path="/about" element={<AboutUs />} /> */}
@@ -95,18 +100,11 @@ function AppRoutes() {
                 <Route path="/vendoraddproduct" element={<AddProduct />} />
                 <Route path="/vendororders" element={<Orders />} />
                 <Route path="/vendorearning" element={<Earnings />} />
-
+                <Route path="/vendorfeestructure" element={<FeeStructure />} />
+                <Route path="/vendorprofile" element={<VendorProfile />} />
             </Route>
-
-
-
-
-
-
-
             <Route path="/success" element={<Success />} />
             <Route path="/product/:id" element={<ProductDetails />} />
-            <Route path="/track-order/:orderId" element={<OrderTracking />} />
 
             {/* Delivery Routes */}
             <Route path="/delivery" element={<DeliveryAgentLogin onLoginSuccess={() => console.log("Delivery Login Successful")} />} />
@@ -114,6 +112,8 @@ function AppRoutes() {
                 <Route path="/delivery/dashboard" element={<DeliveryDashboard />} />
                 <Route path="/delivery/assigned" element={<AssignedOrders />} />
                 <Route path="/delivery/earnings" element={<EarningsPage />} />
+                <Route path="/delivery/profile" element={<DeliveryProfile />} />
+                <Route path="/delivery/order/:id" element={<DeliveryOrderDetail />} />
             </Route>
 
             {/* Fallback */}

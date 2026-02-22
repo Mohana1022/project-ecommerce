@@ -49,13 +49,25 @@ class DeliveryAgentProfile(models.Model):
     # Vehicle Information
     vehicle_type = models.CharField(max_length=20, choices=VEHICLE_CHOICES)
     vehicle_number = models.CharField(max_length=20, blank=True, null=True)
-    vehicle_registration = models.FileField(upload_to='vehicle_docs/', blank=True, null=True)
-    vehicle_insurance = models.FileField(upload_to='vehicle_docs/', blank=True, null=True)
+    
+    # Vehicle Registration (Binary Storage)
+    vehicle_registration_data = models.BinaryField(null=True, blank=True)
+    vehicle_registration_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    vehicle_registration_filename = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Vehicle Insurance (Binary Storage)
+    vehicle_insurance_data = models.BinaryField(null=True, blank=True)
+    vehicle_insurance_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    vehicle_insurance_filename = models.CharField(max_length=255, null=True, blank=True)
     
     # License & Documentation
     license_number = models.CharField(max_length=50, unique=True, blank=True, null=True)
-    license_file = models.FileField(upload_to='license_docs/', blank=True, null=True)
     license_expires = models.DateField(blank=True, null=True)
+    
+    # License File (Binary Storage)
+    license_file_data = models.BinaryField(null=True, blank=True)
+    license_file_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    license_file_filename = models.CharField(max_length=255, null=True, blank=True)
     
     # Identity Verification
     id_type = models.CharField(max_length=20, default='aadhar', choices=[
@@ -65,7 +77,11 @@ class DeliveryAgentProfile(models.Model):
         ('drivers_license', 'Driver\'s License'),
     ])
     id_number = models.CharField(max_length=50, blank=True, null=True)
-    id_proof_file = models.FileField(upload_to='id_proofs/', blank=True, null=True)
+    
+    # ID Proof (Binary Storage)
+    id_proof_data = models.BinaryField(null=True, blank=True)
+    id_proof_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    id_proof_filename = models.CharField(max_length=255, null=True, blank=True)
     
     # Bank Details for Payout
     bank_holder_name = models.CharField(max_length=100)
@@ -85,11 +101,15 @@ class DeliveryAgentProfile(models.Model):
     
     # Service Area
     service_cities = models.JSONField(default=list, help_text="List of cities where agent provides service")
+    service_pincodes = models.JSONField(default=list, help_text="List of specific pincodes/areas served")
     preferred_delivery_radius = models.IntegerField(
         default=5,
         validators=[MinValueValidator(1), MaxValueValidator(50)],
         help_text="Preferred delivery radius in kilometers"
     )
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    last_location_update = models.DateTimeField(null=True, blank=True)
     
     # Operational Info
     working_hours_start = models.TimeField(null=True, blank=True)
@@ -106,7 +126,7 @@ class DeliveryAgentProfile(models.Model):
         validators=[MinValueValidator(0.00), MaxValueValidator(5.00)]
     )
     total_reviews = models.IntegerField(default=0)
-    total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     
     # Timestamps
     created_at = models.DateTimeField(default=timezone.now)
@@ -209,9 +229,15 @@ class DeliveryAssignment(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     
-    # Proof of Delivery
-    signature_image = models.ImageField(upload_to='delivery_proofs/', null=True, blank=True)
-    delivery_photo = models.ImageField(upload_to='delivery_proofs/', null=True, blank=True)
+    # Proof of Delivery (Binary Storage)
+    signature_image_data = models.BinaryField(null=True, blank=True)
+    signature_image_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    signature_image_filename = models.CharField(max_length=255, null=True, blank=True)
+
+    delivery_photo_data = models.BinaryField(null=True, blank=True)
+    delivery_photo_mimetype = models.CharField(max_length=50, null=True, blank=True)
+    delivery_photo_filename = models.CharField(max_length=255, null=True, blank=True)
+    
     otp_verified = models.BooleanField(default=False)
     otp_code = models.CharField(max_length=6, blank=True)
 
@@ -251,7 +277,6 @@ class DeliveryAssignment(models.Model):
     def mark_delivered(self):
         """Mark delivery as completed, credit agent wallet and create commission record"""
         from user.models import UserWallet, Order
-        from .models import DeliveryCommission, DeliveryDailyStats
         
         # Update order status to delivered
         if self.order:
@@ -263,11 +288,6 @@ class DeliveryAssignment(models.Model):
         self.delivery_time = timezone.now()
         self.completed_at = timezone.now()
         self.save()
-        
-        # 1. Update order status
-        self.order.status = 'delivered'
-        self.order.delivered_at = self.delivery_time
-        self.order.save()
 
         # 2. Calculate Commission Based on Type (Local vs Out-of-city)
         # Assuming local is within the same city
@@ -297,13 +317,20 @@ class DeliveryAssignment(models.Model):
         wallet, created = UserWallet.objects.get_or_create(user=self.agent.user)
         wallet.add_balance(total_commission, f"Delivery Commission for Order {self.order.order_number}")
         
-        # 4. Update daily stats
+        # 4. Update Agent Profile Aggregate Stats
+        self.agent.total_deliveries += 1
+        self.agent.completed_deliveries += 1
+        # Convert to Decimal to avoid "float + Decimal" TypeError
+        self.agent.total_earnings = Decimal(str(self.agent.total_earnings)) + total_commission
+        self.agent.save()
+
+        # 5. Update daily stats
         stats, created = DeliveryDailyStats.objects.get_or_create(
             agent=self.agent,
             date=timezone.now().date()
         )
         stats.total_deliveries_completed += 1
-        stats.total_earnings += total_commission
+        stats.total_earnings = Decimal(str(stats.total_earnings)) + total_commission
         stats.save()
     
     def mark_failed(self):
@@ -368,13 +395,13 @@ class DeliveryCommission(models.Model):
     delivery_assignment = models.ForeignKey(DeliveryAssignment, on_delete=models.SET_NULL, null=True, blank=True, related_name='commission')
     
     # Commission Details
-    base_fee = models.DecimalField(max_digits=10, decimal_places=2)
-    distance_bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    time_bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    rating_bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    base_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    distance_bonus = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    time_bonus = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    rating_bonus = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     
-    total_commission = models.DecimalField(max_digits=10, decimal_places=2)
+    total_commission = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
@@ -492,22 +519,29 @@ class DeliveryDailyStats(models.Model):
     total_deliveries_assigned = models.IntegerField(default=0)
     total_deliveries_completed = models.IntegerField(default=0)
     total_deliveries_failed = models.IntegerField(default=0)
+
+    # Legacy fields (needed for DB integrity)
+    total_deliveries = models.IntegerField(default=0)
+    completed_deliveries = models.IntegerField(default=0)
+    failed_deliveries = models.IntegerField(default=0)
+    distance_covered = models.FloatField(default=0.0)
+    hours_worked = models.FloatField(default=0.0)
     
     # Time Metrics
-    total_hours_worked = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
-    average_delivery_time = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)  # in minutes
+    total_hours_worked = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
+    average_delivery_time = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))  # in minutes
     
     # Distance Metrics
-    total_distance = models.DecimalField(max_digits=8, decimal_places=2, default=0.00)  # in km
-    average_distance_per_delivery = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
+    total_distance = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.00'))  # in km
+    average_distance_per_delivery = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('0.00'))
     
     # Financial Metrics
-    total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    total_bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    total_bonus = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
     
     # Rating Metrics
     customer_ratings_received = models.IntegerField(default=0)
-    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=Decimal('0.00'))
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -616,8 +650,9 @@ class DeliveryAgentWallet(models.Model):
     def add_earnings(self, amount, description=''):
         """Add earnings to wallet"""
         if amount > 0:
-            self.current_balance += amount
-            self.total_earnings += amount
+            # Cast to Decimal to avoid float + Decimal TypeError
+            self.current_balance = Decimal(str(self.current_balance)) + Decimal(str(amount))
+            self.total_earnings = Decimal(str(self.total_earnings)) + Decimal(str(amount))
             self.save()
             DeliveryAgentTransaction.objects.create(
                 wallet=self,
@@ -630,9 +665,12 @@ class DeliveryAgentWallet(models.Model):
 
     def process_withdrawal(self, amount, description=''):
         """Process withdrawal from wallet"""
-        if amount > 0 and self.current_balance >= amount:
-            self.current_balance -= amount
-            self.total_withdrawn += amount
+        amount_dec = Decimal(str(amount))
+        balance_dec = Decimal(str(self.current_balance))
+        
+        if amount_dec > 0 and balance_dec >= amount_dec:
+            self.current_balance = balance_dec - amount_dec
+            self.total_withdrawn = Decimal(str(self.total_withdrawn)) + amount_dec
             self.save()
             DeliveryAgentTransaction.objects.create(
                 wallet=self,

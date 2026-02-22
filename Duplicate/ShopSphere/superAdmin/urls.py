@@ -30,4 +30,23 @@ urlpatterns = [
     path('products/<int:product_id>/', views.product_detail, name='product_detail'),
     path('products/<int:product_id>/block/', views.block_product, name='block_product'),
     path('products/<int:product_id>/unblock/', views.unblock_product, name='unblock_product'),
+
+    # Financial Management
+    path('ledgers/', views.manage_ledgers, name='manage_ledgers'),
+
+    # Reports
+    path('reports/', views.admin_reports, name='admin_reports'),
+
+    # Delivery Agent Management
+    path('delivery-requests/', views.manage_delivery_requests, name='manage_delivery_requests'),
+    path('delivery-requests/<int:agent_id>/', views.delivery_request_detail, name='delivery_request_detail'),
+    path('delivery-requests/<int:agent_id>/approve/', views.approve_delivery_agent, name='approve_delivery_agent'),
+    path('delivery-requests/<int:agent_id>/reject/', views.reject_delivery_agent, name='reject_delivery_agent'),
+    path('delivery-agents/', views.manage_delivery_agents, name='manage_delivery_agents'),
+    path('delivery-agents/<int:agent_id>/block/', views.block_delivery_agent, name='block_delivery_agent'),
+    path('delivery-agents/<int:agent_id>/unblock/', views.unblock_delivery_agent, name='unblock_delivery_agent'),
+
+    # Order Tracking
+    path('tracking/', views.manage_tracking, name='manage_tracking'),
+    path('tracking/<int:assignment_id>/', views.tracking_detail, name='tracking_detail'),
 ]

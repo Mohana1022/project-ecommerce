@@ -183,7 +183,7 @@ const ProductManagement = () => {
                                                     <div className="flex items-center gap-4">
                                                         {product.images && product.images.length > 0 ? (
                                                             <img
-                                                                src={`http://localhost:8000${product.images[0].image}`}
+                                                                src={product.images[0].url}
                                                                 alt={product.name}
                                                                 className="w-10 h-10 rounded-lg object-cover border border-slate-100"
                                                             />
@@ -267,12 +267,13 @@ const ProductManagement = () => {
                             {/* Image Section */}
                             <div className="w-full md:w-1/2 bg-slate-50 p-6 flex flex-col border-b md:border-b-0 md:border-r border-slate-100">
                                 <div className="flex-1 min-h-[300px] mb-4 relative rounded-2xl overflow-hidden bg-white border border-slate-200">
-                                    <img
-                                        src={selectedProduct.activeImage || (selectedProduct.images && selectedProduct.images.length > 0 ? `http://localhost:8000${selectedProduct.images[0].image}` : '')}
-                                        alt={selectedProduct.name}
-                                        className="w-full h-full object-contain p-4"
-                                    />
-                                    {!selectedProduct.images || selectedProduct.images.length === 0 && (
+                                    {selectedProduct.images && selectedProduct.images.length > 0 ? (
+                                        <img
+                                            src={selectedProduct.activeImage || selectedProduct.images[0].url}
+                                            alt={selectedProduct.name}
+                                            className="w-full h-full object-contain p-4"
+                                        />
+                                    ) : (
                                         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300">
                                             <Package size={48} className="mb-2 opacity-20" />
                                             <p className="text-[10px] font-black uppercase tracking-widest opacity-40">No Visual Assets</p>
@@ -286,10 +287,10 @@ const ProductManagement = () => {
                                         {selectedProduct.images.map((img, idx) => (
                                             <button
                                                 key={idx}
-                                                onClick={() => setSelectedProduct({ ...selectedProduct, activeImage: `http://localhost:8000${img.image}` })}
-                                                className={`flex-shrink-0 w-16 h-16 rounded-xl border-2 transition-all overflow-hidden bg-white ${selectedProduct.activeImage === `http://localhost:8000${img.image}` || (!selectedProduct.activeImage && idx === 0) ? 'border-violet-600 scale-95 shadow-lg' : 'border-transparent hover:border-slate-200'}`}
+                                                onClick={() => setSelectedProduct({ ...selectedProduct, activeImage: img.url })}
+                                                className={`flex-shrink-0 w-16 h-16 rounded-xl border-2 transition-all overflow-hidden bg-white ${selectedProduct.activeImage === img.url || (!selectedProduct.activeImage && idx === 0) ? 'border-violet-600 scale-95 shadow-lg' : 'border-transparent hover:border-slate-200'}`}
                                             >
-                                                <img src={`http://localhost:8000${img.image}`} alt="Preview" className="w-full h-full object-cover" />
+                                                <img src={img.url} alt="Preview" className="w-full h-full object-cover" />
                                             </button>
                                         ))}
                                     </div>

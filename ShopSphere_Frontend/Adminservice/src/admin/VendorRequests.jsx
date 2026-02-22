@@ -1,23 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Search, Eye, CheckCircle, XCircle } from 'lucide-react';
 import { fetchVendorRequests, approveVendorRequest, rejectVendorRequest } from '../api/axios';
 import { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const VendorRequests = () => {
     const navigate = useNavigate();
     const [vendors, setVendors] = useState([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-
+    const [isLoading, setIsLoading] = useState(true);
 
     const loadVendors = async () => {
+        setIsLoading(true);
         try {
             const data = await fetchVendorRequests();
             setVendors(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Failed to fetch vendor requests", error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -25,7 +28,6 @@ const VendorRequests = () => {
         loadVendors();
     }, []);
 
-    // Filter to show ONLY pending requests
     const pendingRequests = vendors.filter(vendor => vendor.approval_status === 'pending');
 
     const handleLogout = () => {
@@ -34,7 +36,7 @@ const VendorRequests = () => {
         navigate('/');
     };
 
-    const handleAction = async (id, action, name) => {
+    const handleAction = async (id, action) => {
         try {
             if (action === "Approved") {
                 await approveVendorRequest(id);
@@ -48,100 +50,153 @@ const VendorRequests = () => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 font-sans text-slate-800">
+        <div className="flex h-screen bg-gray-50/50 font-sans text-slate-800 selection:bg-indigo-100">
             <Sidebar
                 isSidebarOpen={isSidebarOpen}
                 activePage="Vendor Requests"
                 onLogout={handleLogout}
             />
 
-            <main className="flex-1 overflow-y-auto transition-all duration-300">
+            <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
                 {/* Header */}
-                <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 px-4 md:px-8 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 md:gap-4">
-                        <button
+                <header className="bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm px-6 py-4 flex items-center justify-between z-20 flex-shrink-0">
+                    <div className="flex items-center gap-4">
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
                             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className="p-2 text-slate-500 hover:bg-violet-100 hover:text-violet-950 rounded-lg transition-all duration-200"
+                            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
                         >
-                            {isSidebarOpen ? <PanelLeftClose className="w-5 h-5 md:w-6 md:h-6" /> : <PanelLeftOpen className="w-5 h-5 md:w-6 md:h-6" />}
-                        </button>
-                        <h1 className="text-lg md:text-2xl font-bold text-slate-800 truncate">Manage Vendor Requests</h1>
-                    </div>
-
-                    <div className="flex items-center gap-6 self-end sm:self-auto">
-                        <div className="w-8 h-8 bg-violet-900 rounded-full flex items-center justify-center text-white font-bold shadow-lg shadow-violet-900/20">A</div>
+                            {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                        </motion.button>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-black text-slate-900 tracking-tight">Vendor Management</h1>
+                                <span className="bg-orange-50 text-orange-600 text-[10px] font-black px-2 py-0.5 rounded-full uppercase border border-orange-100 tracking-widest leading-none">Review Needed</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium tracking-widest uppercase">Approvals & Onboarding</p>
+                        </div>
                     </div>
                 </header>
 
-                <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                    {/* Pending Requests Header */}
-                    <div className="mb-6">
-                        <div className="inline-block px-4 py-2 bg-violet-800 text-white rounded-lg font-medium shadow-lg shadow-violet-900/20">
-                            Pending Requests
+                <main className="flex-1 overflow-y-auto p-8 space-y-8">
+                    {/* Toolbar */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center justify-between"
+                    >
+                        <div className="flex items-center gap-4">
+                            <span className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-slate-900/10">
+                                Pending Queue
+                                <span className="bg-white/20 px-1.5 py-0.5 rounded-md">{pendingRequests.length}</span>
+                            </span>
                         </div>
-                    </div>
+                    </motion.div>
 
-                    {/* Table */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    {/* Table Section */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5 }}
+                        className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden"
+                    >
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className="bg-gray-50 border-b border-gray-100">
+                                <thead className="bg-slate-50/50 border-b border-slate-100">
                                     <tr>
-                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Shop Name</th>
-                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Owner</th>
-                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
-                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Applied On</th>
-                                        <th className="px-4 md:px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Shop & Partner Details</th>
+                                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status Tracking</th>
+                                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Application Date</th>
+                                        <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Review Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-50">
-                                    {pendingRequests.map((vendor) => (
-                                        <tr key={vendor.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="px-4 md:px-6 py-4 text-sm font-medium text-gray-900">{vendor.shop_name}</td>
-                                            <td className="px-4 md:px-6 py-4 text-sm text-gray-600">{vendor.user_email}</td>
-                                            <td className="px-4 md:px-6 py-4">
-                                                <span className="text-xs font-medium px-2.5 py-0.5 rounded border bg-yellow-100 text-yellow-800 border-yellow-200 uppercase">
-                                                    {vendor.approval_status}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 md:px-6 py-4 text-sm text-gray-500">{new Date(vendor.created_at).toLocaleDateString()}</td>
-                                            <td className="px-4 md:px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => navigate(`/vendors/review/${vendor.id}`)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleAction(vendor.id, 'Approved', vendor.shop_name)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-md transition-colors"
-                                                    >
-                                                        Approve
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleAction(vendor.id, 'Blocked', vendor.shop_name)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors"
-                                                    >
-                                                        Reject
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {pendingRequests.length === 0 && (
+                                <tbody className="divide-y divide-slate-50">
+                                    <AnimatePresence mode="popLayout">
+                                        {pendingRequests.map((vendor, index) => (
+                                            <motion.tr
+                                                layout
+                                                key={vendor.id}
+                                                initial={{ opacity: 0, x: -20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: 20 }}
+                                                transition={{ delay: index * 0.05 }}
+                                                className="group hover:bg-slate-50/50 transition-colors"
+                                            >
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-white text-xs font-black shadow-lg shadow-orange-500/10 uppercase">
+                                                            {vendor.shop_name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black text-slate-900 truncate max-w-[200px]">{vendor.shop_name}</p>
+                                                            <p className="text-[11px] text-slate-400 font-medium truncate max-w-[200px]">{vendor.user_email}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-widest border border-amber-100">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                        {vendor.approval_status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <p className="text-xs font-bold text-slate-600">{new Date(vendor.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                                    <p className="text-[10px] text-slate-400 font-medium">Applied for partnership</p>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => navigate(`/vendors/review/${vendor.id}`)}
+                                                            className="p-2.5 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all"
+                                                            title="Review Details"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </motion.button>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => handleAction(vendor.id, 'Approved')}
+                                                            className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-500 hover:text-white transition-all border border-emerald-100"
+                                                            title="Approve Partner"
+                                                        >
+                                                            <CheckCircle className="w-4 h-4" />
+                                                        </motion.button>
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.05 }}
+                                                            whileTap={{ scale: 0.95 }}
+                                                            onClick={() => handleAction(vendor.id, 'Rejected')}
+                                                            className="p-2.5 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-500 hover:text-white transition-all border border-rose-100"
+                                                            title="Reject Partner"
+                                                        >
+                                                            <XCircle className="w-4 h-4" />
+                                                        </motion.button>
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
+                                    {!isLoading && pendingRequests.length === 0 && (
                                         <tr>
-                                            <td colSpan="5" className="px-6 py-10 text-center text-gray-500">
-                                                No pending vendor requests at this time.
+                                            <td colSpan="4" className="px-8 py-20 text-center">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300">
+                                                        <Search className="w-8 h-8" />
+                                                    </div>
+                                                    <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Inbox is empty</p>
+                                                    <p className="text-xs text-slate-300 font-medium">No new vendor requests to process</p>
+                                                </div>
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                </div>
-            </main>
+                    </motion.div>
+                </main>
+            </div>
         </div>
     );
 };

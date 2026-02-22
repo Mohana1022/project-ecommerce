@@ -11,15 +11,24 @@ const RANK_COLORS = [
 
 function getImageUrl(item) {
     const images = item.images || item.gallery || [];
+    const placeholder =
+        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%239ca3af'%3ENo Image%3C/text%3E%3C/svg%3E";
+
     if (images.length > 0) {
         const img = images[0];
         const imgPath = typeof img === "string" ? img : img.image;
+        if (!imgPath) return placeholder;
         if (imgPath.startsWith("http")) return imgPath;
-        if (imgPath.startsWith("/media/")) return `http://127.0.0.1:8000${imgPath}`;
-        if (imgPath.startsWith("media/")) return `http://127.0.0.1:8000/${imgPath}`;
-        return `http://127.0.0.1:8000/media/${imgPath}`;
+
+        const defaultBase = "http://127.0.0.1:8000";
+        const base = import.meta.env.VITE_API_BASE_URL || defaultBase;
+
+        if (imgPath.startsWith("/api/")) return `${base}${imgPath}`;
+        if (imgPath.startsWith("/media/")) return `${base}${imgPath}`;
+        if (imgPath.startsWith("media/")) return `${base}/${imgPath}`;
+        return `${base}/media/${imgPath}`;
     }
-    return item.image || "/placeholder.jpg";
+    return item.image || placeholder;
 }
 
 function SkeletonCard() {
@@ -228,12 +237,13 @@ export default function TrendingProducts({
 
                                     {/* Product Image */}
                                     <div className="relative z-10 h-[50%] flex items-center justify-center p-4 overflow-hidden">
-                                        <motion.img
+                                        <img
                                             src={getImageUrl(item)}
                                             alt={item.name}
                                             className="max-h-full max-w-full object-contain drop-shadow-xl"
-                                            animate={hoveredId === item.id ? { scale: 1.08, rotate: 1 } : { scale: 1, rotate: 0 }}
-                                            transition={{ duration: 0.35, ease: "easeOut" }}
+                                            onError={(e) => {
+                                                e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%239ca3af'%3ENo Image%3C/text%3E%3C/svg%3E";
+                                            }}
                                         />
                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-6 bg-orange-400/20 blur-xl rounded-full" />
                                     </div>

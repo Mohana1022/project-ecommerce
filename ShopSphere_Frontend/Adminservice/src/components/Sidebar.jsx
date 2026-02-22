@@ -4,13 +4,12 @@ import {
     Users,
     Store,
     Package,
-    ShoppingCart,
     BarChart3,
     Settings,
-    ArrowRight,
-    ClipboardList
+    LogOut,
+    ClipboardList,
+    Truck,
 } from 'lucide-react';
-import { motion as Motion } from 'framer-motion';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -22,7 +21,8 @@ const Sidebar = ({ isSidebarOpen, activePage = 'Dashboard', onLogout }) => {
         { name: 'Users', icon: Users, path: '/users' },
         { name: 'Vendors', icon: Store, path: '/vendors' },
         { name: 'Vendor Requests', icon: ClipboardList, path: '/vendors/requests' },
-        { name: 'Delivery Agents', icon: Store, path: '/delivery/agents' },
+        { name: 'Orders', icon: ClipboardList, path: '/orders' },
+        { name: 'Delivery Agents', icon: Truck, path: '/delivery/agents' },
         { name: 'Delivery Requests', icon: ClipboardList, path: '/delivery/requests' },
         { name: 'Products', icon: Package, path: '/products' },
         { name: 'Reports', icon: BarChart3, path: '/reports' },
@@ -30,68 +30,119 @@ const Sidebar = ({ isSidebarOpen, activePage = 'Dashboard', onLogout }) => {
     ];
 
     return (
-        <Motion.aside
-            initial={false}
-            animate={{
-                width: isSidebarOpen ? '16rem' : '0rem',
-                opacity: isSidebarOpen ? 1 : 0,
-            }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed inset-y-0 left-0 z-50 bg-white border-r border-white/5 md:relative overflow-hidden"
-        >
-            <div className="flex flex-col h-full bg-white w-64">
-                <div className="flex items-center justify-between p-6 border-b border-white/5">
-                    <div className="flex items-center gap-2 text-indigo-500 font-bold text-xl">
-                        <div className="p-0 flex items-center justify-center">
-                            <img src="/s_logo.png" alt="ShopSphere Logo" className="w-20 h-20 object-contain" />
-                        </div>
-                        <span className="tracking-tight text-[25px] text-black">Admin</span>
-                    </div>
-                </div>
+        <>
+            {/* Mobile backdrop — only visible when sidebar open on small screens */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden"
+                    onClick={onLogout /* parent toggles it via its own state */}
+                />
+            )}
 
-                <nav className="flex-1 px-4 py-6 space-y-1">
-                    {menuItems.map((item) => {
-                        const isActive = item.name === activePage;
-                        return (
+            {/* Sidebar panel */}
+            <aside
+                style={{
+                    width: isSidebarOpen ? '256px' : '0px',
+                    minWidth: isSidebarOpen ? '256px' : '0px',
+                    transition: 'width 0.28s ease, min-width 0.28s ease',
+                    overflow: 'hidden',
+                }}
+                className={`
+                    relative z-50 flex-shrink-0 h-screen
+                    bg-white border-r border-slate-100 shadow-xl shadow-slate-200/60
+                    md:relative md:translate-x-0
+                    ${isSidebarOpen ? '' : 'border-r-0'}
+                `}
+            >
+                {/* Inner container — fixed width so content doesn't squish during animation */}
+                <div className="flex flex-col h-full w-64 font-['Inter',sans-serif]">
+
+                    {/* Logo */}
+                    <div className="flex items-center gap-2.5 px-4 py-4 border-b border-slate-100">
+                        <img
+                            src="/s_logo.png"
+                            alt="ShopSphere"
+                            className="w-9 h-9 object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.7)] flex-shrink-0"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <div className="leading-tight">
+                            <span className="block text-[15px] font-black tracking-tight" style={{ background: 'linear-gradient(to right, #f97316, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                ShopSphere
+                            </span>
+                            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em]">
+                                Admin Panel
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Nav */}
+                    <nav className="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
+                        {menuItems.map((item, index) => {
+                            const isActive = item.name === activePage;
+                            return (
+                                <motion.button
+                                    key={item.name}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    whileHover={{ x: 4 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => navigate(item.path)}
+                                    className={`
+                                        flex items-center gap-3 w-full text-left px-4 py-2.5 rounded-xl
+                                        text-[13px] font-semibold tracking-tight transition-all duration-200 group
+                                        ${isActive
+                                            ? 'bg-gradient-to-r from-orange-500 to-purple-600 text-white shadow-lg shadow-orange-400/25'
+                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                        }
+                                    `}
+                                >
+                                    <item.icon
+                                        className={`w-[18px] h-[18px] flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
+                                            }`}
+                                    />
+                                    <span className="truncate">{item.name}</span>
+                                    {isActive && (
+                                        <motion.span
+                                            layoutId="activeIndicator"
+                                            className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60 flex-shrink-0"
+                                        />
+                                    )}
+                                </motion.button>
+                            );
+                        })}
+                    </nav>
+
+                    {/* Footer / User info */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="p-3 border-t border-slate-100"
+                    >
+                        <div className="flex items-center gap-3 px-3 py-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-white text-xs font-black shadow flex-shrink-0">
+                                A
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[12px] font-bold text-slate-800 truncate leading-tight">Admin User</p>
+                                <p className="text-[10px] text-slate-400 font-medium truncate leading-tight">
+                                    admin@shopsphere.com
+                                </p>
+                            </div>
                             <button
-                                key={item.name}
-                                onClick={() => !item.isPlaceholder ? navigate(item.path) : null}
-                                title={item.isPlaceholder ? "Coming Soon" : ""}
-                                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group w-full text-left ${isActive
-                                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20'
-                                    : 'text-slate-400 hover:bg-white/5 hover:text-black'
-                                    } ${item.isPlaceholder ? 'cursor-default' : ''}`}
+                                onClick={onLogout}
+                                className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-all group flex-shrink-0"
+                                title="Logout"
                             >
-                                <item.icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-black'}`} />
-                                {item.name}
-                                {item.isPlaceholder && (
-                                    <span className="ml-auto text-[10px] bg-white/10 text-slate-500 px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">Soon</span>
-                                )}
+                                <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
                             </button>
-                        );
-                    })}
-                </nav>
+                        </div>
+                    </motion.div>
 
-                <div className="p-4 mt-auto">
-                    <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
-                        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-600/20">
-                            A
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white truncate">Admin User</p>
-                            <p className="text-xs text-slate-500 truncate">admin@shopsphere.com</p>
-                        </div>
-                        <button
-                            onClick={onLogout}
-                            className="p-1.5 hover:bg-white/5 text-slate-500 hover:text-white rounded-lg transition-colors"
-                            title="Logout"
-                        >
-                            <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
                 </div>
-            </div>
-        </Motion.aside>
+            </aside>
+        </>
     );
 };
 

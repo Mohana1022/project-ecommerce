@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import StepProgress from "../../Components/StepProgress";
 import { useNavigate } from "react-router-dom";
 import { vendorRegister } from "../../api/vendor_axios";
+import { useVendorRegistration } from "../../context/VendorRegistrationContext.jsx";
 
 export default function BankDetails() {
     const navigate = useNavigate();
+    const { registrationFiles, clearFiles } = useVendorRegistration();
 
     const [form, setForm] = useState({
         holderName: "",
@@ -145,8 +147,11 @@ export default function BankDetails() {
         setApiError("");
 
         try {
-            // Combine all vendor data with bank details
-            const completeVendorData = {
+            // Use FormData for both data and files
+            const formData = new FormData();
+
+            // Add all text fields
+            const dataToSubmit = {
                 // User credentials
                 username: vendorData.username || "",
                 email: vendorData.email || "",
@@ -176,13 +181,28 @@ export default function BankDetails() {
                 bank_ifsc_code: form.ifsc,
             };
 
-            console.log("Submitting Vendor payload:", completeVendorData);
+            Object.keys(dataToSubmit).forEach(key => {
+                formData.append(key, dataToSubmit[key]);
+            });
+
+            // Add files from Context
+            if (registrationFiles.id_proof_file) {
+                formData.append("id_proof_file", registrationFiles.id_proof_file);
+            }
+            if (registrationFiles.pan_card_file) {
+                formData.append("pan_card_file", registrationFiles.pan_card_file);
+            }
+
+            console.log("Submitting Vendor payload (FormData)");
 
             // Call the API
-            const response = await vendorRegister(completeVendorData);
+            const response = await vendorRegister(formData);
 
             console.log("Success! Details have been successfully sent to the Admin for approval.");
             console.log("Response:", response);
+
+            // Clear context files
+            clearFiles();
 
             // Clear all vendor data from localStorage after successful submission
             localStorage.removeItem("vendorGSTData");
